@@ -63,5 +63,4 @@ const getInventoryReport = async (req, res, next) => {
     res.json({ success: true, products, totals: totals || { totalProducts: 0, totalStockValue: 0, totalSaleValue: 0 }, byCategory });
   } catch (error) { next(error); }
 };
-
-module.exports = { getSalesReport, getExpenseReport, getProfitReport, getInventoryReport };
+export default { getSalesReport, getExpenseReport, getProfitReport, getInventoryReport };

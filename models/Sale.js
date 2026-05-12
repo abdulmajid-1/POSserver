@@ -32,4 +32,4 @@ const saleSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.model('Sale', saleSchema);
+export default mongoose.model('Sale', saleSchema);

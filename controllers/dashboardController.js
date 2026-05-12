@@ -47,4 +47,4 @@ const getDashboardStats = async (req, res, next) => {
   } catch (error) { next(error); }
 };
 
-module.exports = { getDashboardStats };
+export default { getDashboardStats };
