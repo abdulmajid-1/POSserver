@@ -29,4 +29,4 @@ productSchema.virtual('profitMargin').get(function () {
 productSchema.set('toJSON', { virtuals: true });
 productSchema.set('toObject', { virtuals: true });
 
-export default mongoose.model('Product', productSchema);
+export const Product = mongoose.model('Product', productSchema);

@@ -57,4 +57,4 @@ const deleteExpense = async (req, res, next) => {
   }
 };
 
-export default { getExpenses, createExpense, updateExpense, deleteExpense };
+export { getExpenses, createExpense, updateExpense, deleteExpense };

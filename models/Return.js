@@ -22,4 +22,4 @@ const returnSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.model('Return', returnSchema);
+export const Return = mongoose.model('Return', returnSchema);

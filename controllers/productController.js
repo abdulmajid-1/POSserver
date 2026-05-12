@@ -81,4 +81,4 @@ const deleteProduct = async (req, res, next) => {
     next(error);
   }
 };
-export default { getProducts, getLowStockProducts, getProduct, createProduct, updateProduct, deleteProduct };
+export { getProducts, getLowStockProducts, getProduct, createProduct, updateProduct, deleteProduct };

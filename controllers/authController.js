@@ -82,4 +82,4 @@ const changePassword = async (req, res, next) => {
   }
 };
 
-export default { login, getProfile, updateProfile, changePassword };
+export { login, getProfile, updateProfile, changePassword };

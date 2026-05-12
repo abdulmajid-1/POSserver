@@ -169,4 +169,4 @@ const getMonthlyData = async (req, res, next) => {
   }
 };
 
-export default { createSale, getSales, getSale, getDailySummary, getWeeklyData, getMonthlyData };
+export { createSale, getSales, getSale, getDailySummary, getWeeklyData, getMonthlyData };

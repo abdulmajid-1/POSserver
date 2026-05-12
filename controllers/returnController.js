@@ -50,4 +50,4 @@ const createReturn = async (req, res, next) => {
   } catch (error) { next(error); }
 };
 
-export default { getReturns, createReturn };
+export { getReturns, createReturn };
