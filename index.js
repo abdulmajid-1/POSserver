@@ -4,8 +4,8 @@ import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
 
-import connectDB from "./db/index.js";
-import errorHandler from "./middleware/errorHandler.js";
+import { connectDB } from "./db/index.js";
+import { errorHandler } from "./middleware/errorHandler.js";
 
 import authRoutes from "./routes/auth.js";
 import productsRoutes from "./routes/products.js";
