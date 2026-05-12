@@ -27,7 +27,7 @@ const __dirname = path.dirname(__filename);
 // Middleware
 app.use(
     cors({
-        origin: ["http://localhost:5173", "http://localhost:3000"],
+        origin: "*",
         credentials: true,
     })
 );
