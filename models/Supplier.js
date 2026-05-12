@@ -79,8 +79,6 @@ supplierSchema.pre("save", function (next) {
 
     this.remainingBalance =
         this.totalPurchases - this.totalPaid;
-
-    next();
 });
 export const Supplier = mongoose.model(
     "Supplier",
