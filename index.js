@@ -15,6 +15,8 @@ import returnsRoutes from "./routes/returns.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import reportsRoutes from "./routes/reports.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
+import supplierRoutes from "./routes/supplierRoutes.js";
+
 
 
 dotenv.config();
@@ -47,6 +49,7 @@ app.use("/api/returns", returnsRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/reports", reportsRoutes);
 app.use("/api/categories", categoryRoutes);
+app.use("/api/suppliers", supplierRoutes);
 
 
 // Health check

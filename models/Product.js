@@ -13,8 +13,11 @@ const productSchema = new mongoose.Schema(
     salePrice: { type: Number, required: [true, 'Sale price is required'], min: 0 },
     quantity: { type: Number, required: true, default: 0, min: 0 },
     lowStockThreshold: { type: Number, default: 10 },
-    supplier: { type: String, trim: true, default: '' },
-    image: { type: String, default: '' },
+    supplier: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Supplier',
+      required: false,
+    }, image: { type: String, default: '' },
     description: { type: String, default: '' },
     isActive: { type: Boolean, default: true },
   },

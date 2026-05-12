@@ -1,25 +1,10 @@
 import { Product } from '../models/Product.js';
 import { ProductCategory } from "../models/ProductCategory.js";
+import { Supplier } from "../models/Supplier.js";
+
 
 // @desc    Get all products
 // @route   GET /api/products
-// const getProducts = async (req, res, next) => {
-//   try {
-//     const { search, category, page = 1, limit = 50, lowStock } = req.query;
-//     const query = { isActive: true };
-//     if (search) query.$or = [{ name: { $regex: search, $options: 'i' } }, { sku: { $regex: search, $options: 'i' } }];
-//     if (category) query.category = category;
-
-//     let products = await Product.find(query).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(Number(limit));
-//     if (lowStock === 'true') products = products.filter((p) => p.quantity <= p.lowStockThreshold);
-
-//     const total = await Product.countDocuments(query);
-//     const categories = await Product.distinct('category');
-//     res.json({ success: true, products, total, categories });
-//   } catch (error) {
-//     next(error);
-//   }
-// };
 
 
 const getProducts = async (req, res, next) => {
@@ -50,6 +35,7 @@ const getProducts = async (req, res, next) => {
     // Fetch products + populate category
     let products = await Product.find(query)
       .populate("category", "name")
+      .populate("supplier", "name ")
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(Number(limit));
