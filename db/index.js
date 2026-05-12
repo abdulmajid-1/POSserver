@@ -1,5 +1,5 @@
-const mongoose = require("mongoose");
-const { DB_NAME } = require("../constants.js");
+import mongoose from "mongoose";
+import { DB_NAME } from "../constants.js";
 /**
  * Connect to MongoDB database
  * Establishes connection to MongoDB using mongoose

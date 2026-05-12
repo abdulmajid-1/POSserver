@@ -1,9 +1,16 @@
-const express = require('express');
+import express from "express";
+
+import {
+    getReturns,
+    createReturn,
+} from "../controllers/returnController.js";
+
+import { protect } from "../middleware/auth.js";
+
 const router = express.Router();
-const { getReturns, createReturn } = require('../controllers/returnController');
-const { protect } = require('../middleware/auth');
 
 router.use(protect);
-router.route('/').get(getReturns).post(createReturn);
 
-module.exports = router;
+router.route("/").get(getReturns).post(createReturn);
+
+export default router;

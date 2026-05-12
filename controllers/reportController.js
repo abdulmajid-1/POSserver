@@ -1,7 +1,7 @@
-const Sale = require('../models/Sale');
-const Expense = require('../models/Expense');
-const Return = require('../models/Return');
-const Product = require('../models/Product');
+import Sale from '../models/Sale.js';
+import Expense from '../models/Expense.js';
+import Return from '../models/Return.js';
+import Product from '../models/Product.js';
 
 const getSalesReport = async (req, res, next) => {
   try {

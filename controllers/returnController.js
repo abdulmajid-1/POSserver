@@ -1,7 +1,7 @@
-const Return = require('../models/Return');
-const Sale = require('../models/Sale');
-const Product = require('../models/Product');
-const { generateReturnNumber } = require('../utils/generateInvoiceNumber');
+import Return from '../models/Return.js';
+import Sale from '../models/Sale.js';
+import Product from '../models/Product.js';
+import { generateReturnNumber } from '../utils/generateInvoiceNumber.js';
 
 const getReturns = async (req, res, next) => {
   try {

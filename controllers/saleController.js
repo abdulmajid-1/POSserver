@@ -1,6 +1,6 @@
-const Sale = require('../models/Sale');
-const Product = require('../models/Product');
-const { generateInvoiceNumber } = require('../utils/generateInvoiceNumber');
+import Sale from '../models/Sale.js';
+import Product from '../models/Product.js';
+import { generateInvoiceNumber } from '../utils/generateInvoiceNumber.js';
 
 // @desc    Create a new sale
 // @route   POST /api/sales
