@@ -2,24 +2,83 @@ import { Product } from '../models/Product.js';
 
 // @desc    Get all products
 // @route   GET /api/products
+// const getProducts = async (req, res, next) => {
+//   try {
+//     const { search, category, page = 1, limit = 50, lowStock } = req.query;
+//     const query = { isActive: true };
+//     if (search) query.$or = [{ name: { $regex: search, $options: 'i' } }, { sku: { $regex: search, $options: 'i' } }];
+//     if (category) query.category = category;
+
+//     let products = await Product.find(query).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(Number(limit));
+//     if (lowStock === 'true') products = products.filter((p) => p.quantity <= p.lowStockThreshold);
+
+//     const total = await Product.countDocuments(query);
+//     const categories = await Product.distinct('category');
+//     res.json({ success: true, products, total, categories });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+
+
 const getProducts = async (req, res, next) => {
   try {
-    const { search, category, page = 1, limit = 50, lowStock } = req.query;
+    const {
+      search,
+      category,
+      page = 1,
+      limit = 50,
+      lowStock,
+    } = req.query;
+
     const query = { isActive: true };
-    if (search) query.$or = [{ name: { $regex: search, $options: 'i' } }, { sku: { $regex: search, $options: 'i' } }];
-    if (category) query.category = category;
 
-    let products = await Product.find(query).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(Number(limit));
-    if (lowStock === 'true') products = products.filter((p) => p.quantity <= p.lowStockThreshold);
+    // Search filter
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { sku: { $regex: search, $options: "i" } },
+      ];
+    }
 
+    // Category filter
+    if (category) {
+      query.category = category;
+    }
+
+    // Fetch products + populate category
+    let products = await Product.find(query)
+      .populate("category", "name")
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(Number(limit));
+
+    // Low stock filter
+    if (lowStock === "true") {
+      products = products.filter(
+        (p) => p.quantity <= p.lowStockThreshold
+      );
+    }
+
+    // Total count
     const total = await Product.countDocuments(query);
-    const categories = await Product.distinct('category');
-    res.json({ success: true, products, total, categories });
+
+    // Get all categories
+    const categories = await ProductCategory.find({
+      isActive: true,
+    }).sort({ name: 1 });
+
+    res.json({
+      success: true,
+      products,
+      total,
+      categories,
+    });
+
   } catch (error) {
     next(error);
   }
 };
-
 // @desc    Get low stock products
 // @route   GET /api/products/low-stock
 const getLowStockProducts = async (req, res, next) => {
