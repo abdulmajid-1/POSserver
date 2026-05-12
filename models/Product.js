@@ -4,7 +4,11 @@ const productSchema = new mongoose.Schema(
   {
     name: { type: String, required: [true, 'Product name is required'], trim: true },
     sku: { type: String, required: [true, 'SKU is required'], unique: true, trim: true, uppercase: true },
-    category: { type: String, required: [true, 'Category is required'], trim: true },
+    category: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ProductCategory",
+      required: [true, "Category is required"],
+    },
     purchasePrice: { type: Number, required: [true, 'Purchase price is required'], min: 0 },
     salePrice: { type: Number, required: [true, 'Sale price is required'], min: 0 },
     quantity: { type: Number, required: true, default: 0, min: 0 },

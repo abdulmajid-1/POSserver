@@ -14,6 +14,8 @@ import expensesRoutes from "./routes/expenses.js";
 import returnsRoutes from "./routes/returns.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import reportsRoutes from "./routes/reports.js";
+import categoryRoutes from "./routes/categoryRoutes.js";
+
 
 dotenv.config();
 
@@ -44,11 +46,14 @@ app.use("/api/expenses", expensesRoutes);
 app.use("/api/returns", returnsRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/reports", reportsRoutes);
+app.use("/api/categories", categoryRoutes);
+
 
 // Health check
 app.get("/api/health", (req, res) =>
     res.json({ status: "OK", message: "AB Traders API running" })
 );
+
 
 // Error handler
 app.use(errorHandler);
@@ -57,7 +62,11 @@ app.use(errorHandler);
 connectDB()
     .then(() => {
         app.listen(PORT, () => {
-            console.log(`🚀 Server running on http://localhost:${PORT}`);
+            console.log(`Server running on http://localhost:${PORT}`);
+
+
+
+
         });
     })
     .catch((err) => {
