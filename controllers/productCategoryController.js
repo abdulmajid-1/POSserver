@@ -75,4 +75,3 @@ export const deleteCategory = async (req, res, next) => {
     }
 };
 
-export { createCategory, getCategories, deleteCategory };
