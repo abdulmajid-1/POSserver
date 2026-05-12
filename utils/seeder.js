@@ -3,7 +3,7 @@ dotenv.config();
 
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
-import User from "../models/User.js";
+import { User } from "../models/User.js";
 
 const seedAdmin = async () => {
   try {
@@ -15,7 +15,7 @@ const seedAdmin = async () => {
     });
 
     if (existing) {
-      console.log("ℹ️ Admin user already exists. Skipping seed.");
+      console.log("ℹAdmin user already exists. Skipping seed.");
       process.exit(0);
     }
 
