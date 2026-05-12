@@ -1,5 +1,5 @@
-import Sale from '../models/Sale.js';
-import Product from '../models/Product.js';
+import {Sale} from '../models/Sale.js';
+import {Product} from '../models/Product.js';
 import { generateInvoiceNumber } from '../utils/generateInvoiceNumber.js';
 
 // @desc    Create a new sale

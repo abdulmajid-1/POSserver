@@ -1,7 +1,7 @@
-import Sale from '../models/Sale.js';
-import Expense from '../models/Expense.js';
-import Return from '../models/Return.js';
-import Product from '../models/Product.js';
+import { Sale } from '../models/Sale.js';
+import { Expense } from '../models/Expense.js';
+import { Return } from '../models/Return.js';
+import { Product } from '../models/Product.js';
 
 const getSalesReport = async (req, res, next) => {
   try {

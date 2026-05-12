@@ -1,7 +1,7 @@
-import Sale from '../models/Sale.js';
-import Expense from '../models/Expense.js';
-import Product from '../models/Product.js';
-import Return from '../models/Return.js';
+import { Sale } from '../models/Sale.js';
+import { Expense } from '../models/Expense.js';
+import { Product } from '../models/Product.js';
+import { Return } from '../models/Return.js';
 
 const getDashboardStats = async (req, res, next) => {
   try {

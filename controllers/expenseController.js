@@ -1,4 +1,4 @@
-import Expense from '../models/Expense.js';
+import { Expense } from '../models/Expense.js';
 
 // @desc    Get all expenses
 // @route   GET /api/expenses

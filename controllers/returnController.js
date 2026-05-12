@@ -1,6 +1,6 @@
-import Return from '../models/Return.js';
-import Sale from '../models/Sale.js';
-import Product from '../models/Product.js';
+import { Return } from '../models/Return.js';
+import { Sale } from '../models/Sale.js';
+import { Product } from '../models/Product.js';
 import { generateReturnNumber } from '../utils/generateInvoiceNumber.js';
 
 const getReturns = async (req, res, next) => {
