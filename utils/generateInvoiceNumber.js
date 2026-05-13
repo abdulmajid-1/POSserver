@@ -1,3 +1,6 @@
+import mongoose from "mongoose";
+import { Sale } from "../models/Sale.js";
+
 const counterMap = new Map();
 
 export const generateInvoiceNumber = async (prefix = "INV") => {
@@ -15,8 +18,8 @@ export const generateInvoiceNumber = async (prefix = "INV") => {
 
   let invoiceNumber = `${key}-${String(count).padStart(4, "0")}`;
 
-  // 🔥 SAFETY CHECK (prevents duplicates in DB)
-  const exists = await mongoose.models.Sale.findOne({ invoiceNumber });
+  // safety check
+  const exists = await Sale.findOne({ invoiceNumber });
 
   if (exists) {
     count++;
