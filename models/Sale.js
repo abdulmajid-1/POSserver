@@ -11,8 +11,11 @@ const saleItemSchema = new mongoose.Schema({
 
 const saleSchema = new mongoose.Schema(
   {
-    invoiceNumber: { type: String, required: true, unique: true },
-    items: [saleItemSchema],
+    invoiceNumber: {
+      type: String,
+      required: true,
+      index: true, // faster lookup
+    }, items: [saleItemSchema],
     customer: {
       name: { type: String, default: 'Walk-in Customer' },
       phone: { type: String, default: '' },
@@ -31,5 +34,6 @@ const saleSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
 
 export const Sale = mongoose.model('Sale', saleSchema);

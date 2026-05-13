@@ -44,7 +44,7 @@ const createSale = async (req, res, next) => {
     const taxAmount = taxRate ? (taxableAmount * taxRate) / 100 : 0;
     const total = taxableAmount + taxAmount;
 
-    const invoiceNumber = generateInvoiceNumber('INV');
+    const invoiceNumber = await generateInvoiceNumber('INV');
     const sale = await Sale.create({
       invoiceNumber,
       items: saleItems,
