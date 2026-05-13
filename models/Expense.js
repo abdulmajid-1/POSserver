@@ -18,19 +18,7 @@ const expenseSchema = new mongoose.Schema(
     // Category for reporting & filtering
     category: {
       type: String,
-      required: [true, 'Category is required'],
-      enum: [
-        'Rent',
-        'Utilities',
-        'Salaries',
-        'Marketing',
-        'Supplies',
-        'Maintenance',
-        'Transport',
-        'Supplier Purchase',
-        'Customer Refund',
-        'Other',
-      ],
+      required: false,
       default: 'Other',
     },
 
