@@ -36,7 +36,7 @@ const createReturn = async (req, res, next) => {
     }
 
     const newReturn = await Return.create({
-      returnNumber: generateReturnNumber(),
+      returnNumber: await generateReturnNumber(),
       originalSale: sale._id,
       invoiceNumber: sale.invoiceNumber,
       items: returnItems,
