@@ -1,35 +1,26 @@
-import mongoose from "mongoose";
-import { Sale } from "../models/Sale.js";
+import { getNextSequence } from './counter.js';
 
-const counterMap = new Map();
+export const generateInvoiceNumber = async () => {
+  const seq = await getNextSequence('invoice');
 
-export const generateInvoiceNumber = async (prefix = "INV") => {
   const date = new Date();
+  const dateStr =
+    date.getFullYear() +
+    String(date.getMonth() + 1).padStart(2, '0') +
+    String(date.getDate()).padStart(2, '0');
 
-  const dateStr = `${date.getFullYear()}${String(
-    date.getMonth() + 1
-  ).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
-
-  const key = `${prefix}-${dateStr}`;
-
-  let count = (counterMap.get(key) || 0) + 1;
-
-  counterMap.set(key, count);
-
-  let invoiceNumber = `${key}-${String(count).padStart(4, "0")}`;
-
-  // safety check
-  const exists = await Sale.findOne({ invoiceNumber });
-
-  if (exists) {
-    count++;
-    counterMap.set(key, count);
-
-    invoiceNumber = `${key}-${String(count).padStart(4, "0")}`;
-  }
-
-  return invoiceNumber;
+  return `INV-${dateStr}-${String(seq).padStart(6, '0')}`;
 };
 
-export const generateReturnNumber = () =>
-  generateInvoiceNumber("RET");
+
+export const generateReturnNumber = async () => {
+  const seq = await getNextSequence('return');
+
+  const date = new Date();
+  const dateStr =
+    date.getFullYear() +
+    String(date.getMonth() + 1).padStart(2, '0') +
+    String(date.getDate()).padStart(2, '0');
+
+  return `RET-${dateStr}-${String(seq).padStart(6, '0')}`;
+};

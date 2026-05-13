@@ -2,6 +2,7 @@ import { Return } from '../models/Return.js';
 import { Sale } from '../models/Sale.js';
 import { Product } from '../models/Product.js';
 import { generateReturnNumber } from '../utils/generateInvoiceNumber.js';
+import { calculateSaleStatus } from '../utils/saleStatus.js';
 
 const getReturns = async (req, res, next) => {
   try {
@@ -16,39 +17,6 @@ const getReturns = async (req, res, next) => {
   } catch (error) { next(error); }
 };
 
-// const createReturn = async (req, res, next) => {
-//   try {
-//     const { saleId, items, reason } = req.body;
-//     const sale = await Sale.findById(saleId);
-//     if (!sale) return res.status(404).json({ success: false, message: 'Sale not found' });
-
-//     const returnItems = [];
-//     let totalRefund = 0;
-
-//     for (const item of items) {
-//       const saleItem = sale.items.find((si) => si.product.toString() === item.productId);
-//       if (!saleItem) return res.status(400).json({ success: false, message: 'Item not found in original sale' });
-//       if (item.quantity > saleItem.quantity) return res.status(400).json({ success: false, message: 'Return qty exceeds purchased qty' });
-//       const refund = saleItem.unitPrice * item.quantity;
-//       totalRefund += refund;
-//       returnItems.push({ product: saleItem.product, productName: saleItem.productName, quantity: item.quantity, unitPrice: saleItem.unitPrice, totalRefund: refund });
-//       await Product.findByIdAndUpdate(saleItem.product, { $inc: { quantity: item.quantity } });
-//     }
-
-//     const newReturn = await Return.create({
-//       returnNumber: await generateReturnNumber(),
-//       originalSale: sale._id,
-//       invoiceNumber: sale.invoiceNumber,
-//       items: returnItems,
-//       totalRefund,
-//       reason,
-//       createdBy: req.user._id,
-//     });
-//     sale.status = 'refunded';
-//     await sale.save();
-//     res.status(201).json({ success: true, return: newReturn });
-//   } catch (error) { next(error); }
-// };
 
 const createReturn = async (req, res, next) => {
   try {
@@ -91,35 +59,42 @@ const createReturn = async (req, res, next) => {
         });
       }
 
-      const alreadyReturned = returnedMap.get(item.productId) || 0;
-
-      const remainingQty =
-        saleItem.quantity - alreadyReturned;
-
-      // 🔥 IMPORTANT VALIDATION (PARTIAL RETURN SAFE CHECK)
-      if (item.quantity > remainingQty) {
+      if (item.quantity > saleItem.quantity - (saleItem.returnedQuantity || 0)) {
         return res.status(400).json({
           success: false,
-          message: `Cannot return more than remaining quantity. Remaining: ${remainingQty}`,
+          message: 'Return qty exceeds remaining quantity',
         });
       }
 
+      // ✅ THIS is the key part (UPDATE HERE)
+      saleItem.returnedQuantity =
+        (saleItem.returnedQuantity || 0) + item.quantity;
+
       const refund = saleItem.unitPrice * item.quantity;
+
       totalRefund += refund;
+
+      // returnItems.push({
+      //   product: saleItem.product,
+      //   productName: saleItem.productName,
+      //   quantity: item.quantity,
+      //   unitPrice: saleItem.unitPrice,
+      //   totalRefund: refund,
+      // });
 
       returnItems.push({
         product: saleItem.product,
         productName: saleItem.productName,
 
-        // 🔥 NEW FIELDS FOR PARTIAL RETURN
         originalQuantity: saleItem.quantity,
+
         returnQuantity: item.quantity,
 
         unitPrice: saleItem.unitPrice,
+
         totalRefund: refund,
       });
 
-      // 🔥 RESTORE STOCK
       await Product.findByIdAndUpdate(saleItem.product, {
         $inc: { quantity: item.quantity },
       });
@@ -141,9 +116,10 @@ const createReturn = async (req, res, next) => {
       createdBy: req.user._id,
     });
 
-    // 🔥 UPDATE SALE STATUS
-    sale.status = allItemsReturned ? 'refunded' : 'partial_refund';
+    sale.status = calculateSaleStatus(sale);
     await sale.save();
+
+
 
     return res.status(201).json({
       success: true,

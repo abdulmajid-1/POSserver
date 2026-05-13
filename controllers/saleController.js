@@ -168,5 +168,18 @@ const getMonthlyData = async (req, res, next) => {
     next(error);
   }
 };
+const calculateSaleStatus = (sale) => {
+  let totalSold = 0;
+  let totalReturned = 0;
 
-export { createSale, getSales, getSale, getDailySummary, getWeeklyData, getMonthlyData };
+  sale.items.forEach((item) => {
+    totalSold += item.quantity;
+    totalReturned += item.returnedQuantity || 0;
+  });
+
+  if (totalReturned === 0) return 'completed';
+  if (totalReturned < totalSold) return 'partial_refund';
+  return 'refunded';
+};
+
+export { createSale, getSales, getSale, getDailySummary, getWeeklyData, getMonthlyData, calculateSaleStatus };
