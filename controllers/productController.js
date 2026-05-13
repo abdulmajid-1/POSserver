@@ -32,6 +32,11 @@ const getProducts = async (req, res, next) => {
       query.category = category;
     }
 
+    if (supplier) {
+      query.supplier = supplier;
+    }
+
+
     // Fetch products + populate category
     let products = await Product.find(query)
       .populate("category", "name")

@@ -73,7 +73,7 @@ const supplierSchema = new mongoose.Schema(
 );
 
 // Auto calculate remaining balance
-supplierSchema.pre("save", function (next) {
+supplierSchema.pre("save", function () {
     this.totalPurchases = this.totalPurchases || 0;
     this.totalPaid = this.totalPaid || 0;
 
