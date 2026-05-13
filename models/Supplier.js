@@ -80,6 +80,50 @@ supplierSchema.pre("save", function () {
     this.remainingBalance =
         this.totalPurchases - this.totalPaid;
 });
+
+supplierSchema.statics.getSupplierStats = async function (supplierId) {
+    const result = await this.aggregate([
+        {
+            $match: {
+                _id: new mongoose.Types.ObjectId(supplierId),
+            },
+        },
+
+        {
+            $lookup: {
+                from: "products",
+                localField: "_id",
+                foreignField: "supplier",
+                as: "products",
+            },
+        },
+
+        {
+            $addFields: {
+                totalProductsSupplied: {
+                    $sum: "$products.quantity",
+                },
+            },
+        },
+
+        {
+            $project: {
+                name: 1,
+                company: 1,
+                phone: 1,
+                email: 1,
+
+                totalPurchases: 1,
+                totalPaid: 1,
+                remainingBalance: 1,
+
+                totalProductsSupplied: 1,
+            },
+        },
+    ]);
+
+    return result[0];
+};
 export const Supplier = mongoose.model(
     "Supplier",
     supplierSchema

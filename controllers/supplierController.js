@@ -71,9 +71,30 @@ export const getSuppliers = async (req, res, next) => {
 
 // @desc    Get single supplier
 // @route   GET /api/suppliers/:id
+// export const getSupplier = async (req, res, next) => {
+//     try {
+//         const supplier = await Supplier.findById(req.params.id);
+
+//         if (!supplier) {
+//             return res.status(404).json({
+//                 success: false,
+//                 message: "Supplier not found",
+//             });
+//         }
+
+//         res.status(200).json({
+//             success: true,
+//             data: supplier,
+//         });
+//     } catch (error) {
+//         next(error);
+//     }
+// };
+
 export const getSupplier = async (req, res, next) => {
     try {
-        const supplier = await Supplier.findById(req.params.id);
+
+        const supplier = await Supplier.getSupplierStats(req.params.id);
 
         if (!supplier) {
             return res.status(404).json({
@@ -86,10 +107,47 @@ export const getSupplier = async (req, res, next) => {
             success: true,
             data: supplier,
         });
+
     } catch (error) {
         next(error);
     }
 };
+
+
+// @desc    Add supplier purchase
+// @route   PATCH /api/suppliers/:id/purchase
+export const addSupplierPurchase = async (req, res, next) => {
+    try {
+        const { purchaseAmount, paidAmount } = req.body;
+
+        const supplier = await Supplier.findById(req.params.id);
+
+        if (!supplier) {
+            return res.status(404).json({
+                success: false,
+                message: "Supplier not found",
+            });
+        }
+
+        supplier.totalPurchases += Number(purchaseAmount || 0);
+
+        supplier.totalPaid += Number(paidAmount || 0);
+
+        supplier.remainingBalance =
+            supplier.totalPurchases - supplier.totalPaid;
+
+        await supplier.save();
+
+        res.status(200).json({
+            success: true,
+            message: "Purchase added successfully",
+            data: supplier,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 
 // @desc    Update supplier
 // @route   PUT /api/suppliers/:id
