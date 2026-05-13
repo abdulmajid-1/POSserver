@@ -1,5 +1,5 @@
-import {Sale} from '../models/Sale.js';
-import {Product} from '../models/Product.js';
+import { Sale } from '../models/Sale.js';
+import { Product } from '../models/Product.js';
 import { generateInvoiceNumber } from '../utils/generateInvoiceNumber.js';
 
 // @desc    Create a new sale
@@ -70,7 +70,7 @@ const createSale = async (req, res, next) => {
 // @route   GET /api/sales
 const getSales = async (req, res, next) => {
   try {
-    const { search, startDate, endDate, page = 1, limit = 20 } = req.query;
+    const { search, startDate, endDate, page = 1, limit = 5 } = req.query;
     const query = {};
     if (search) {
       query.$or = [
