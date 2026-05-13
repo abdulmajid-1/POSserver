@@ -3,21 +3,58 @@ import mongoose from 'mongoose';
 const returnItemSchema = new mongoose.Schema({
   product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
   productName: { type: String, required: true },
-  quantity: { type: Number, required: true, min: 1 },
+
+  originalQuantity: { type: Number, required: true, min: 1 },
+  returnQuantity: { type: Number, required: true, min: 1 },
+
   unitPrice: { type: Number, required: true },
   totalRefund: { type: Number, required: true },
 });
 
 const returnSchema = new mongoose.Schema(
   {
-    returnNumber: { type: String, required: true, unique: true },
-    originalSale: { type: mongoose.Schema.Types.ObjectId, ref: 'Sale', required: true },
-    invoiceNumber: { type: String, required: true },
+    returnNumber: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+    },
+
+    originalSale: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Sale',
+      required: true,
+    },
+
+    invoiceNumber: {
+      type: String,
+      required: true,
+      index: true,
+    },
+
     items: [returnItemSchema],
-    totalRefund: { type: Number, required: true },
-    reason: { type: String, required: [true, 'Reason is required'] },
-    status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'approved' },
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+
+    totalRefund: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
+    reason: {
+      type: String,
+      required: [true, 'Reason is required'],
+    },
+
+    status: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'approved',
+    },
+
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
   },
   { timestamps: true }
 );
