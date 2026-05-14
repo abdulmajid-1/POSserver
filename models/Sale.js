@@ -22,6 +22,7 @@ const saleSchema = new mongoose.Schema(
       name: { type: String, default: 'Walk-in Customer' },
       phone: { type: String, default: '' },
       email: { type: String, default: '' },
+      vatNumber: { type: String, default: '' },
     },
     subtotal: { type: Number, required: true },
     discount: { type: Number, default: 0 },
