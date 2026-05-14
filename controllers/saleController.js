@@ -20,7 +20,15 @@ const createSale = async (req, res, next) => {
       if (product.quantity < item.quantity) {
         return res.status(400).json({ success: false, message: `Insufficient stock for: ${product.name}` });
       }
-      const itemTotal = product.salePrice * item.quantity;
+      const basePrice = product.salePrice * item.quantity;
+      let itemDiscountAmount = 0;
+      if (item.discount && item.discount > 0) {
+        itemDiscountAmount = item.discountType === 'percentage' 
+          ? (basePrice * item.discount) / 100 
+          : item.discount;
+      }
+      const itemTotal = basePrice - itemDiscountAmount;
+      
       subtotal += itemTotal;
       saleItems.push({
         product: product._id,
@@ -28,6 +36,8 @@ const createSale = async (req, res, next) => {
         sku: product.sku,
         quantity: item.quantity,
         unitPrice: product.salePrice,
+        discount: item.discount || 0,
+        discountType: item.discountType || 'fixed',
         totalPrice: itemTotal,
       });
       // Deduct stock

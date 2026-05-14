@@ -6,72 +6,6 @@ import { Supplier } from "../models/Supplier.js";
 // @desc    Get all products
 // @route   GET /api/products
 
-
-// const getProducts = async (req, res, next) => {
-//   try {
-//     const {
-//       search,
-//       category,
-//       page = 1,
-//       limit = 50,
-//       lowStock,
-//     } = req.query;
-
-//     const query = { isActive: true };
-
-//     // Search filter
-//     if (search) {
-//       query.$or = [
-//         { name: { $regex: search, $options: "i" } },
-//         { sku: { $regex: search, $options: "i" } },
-//       ];
-//     }
-
-//     // Category filter
-//     if (category) {
-//       query.category = category;
-//     }
-
-//     if (Supplier) {
-//       query.supplier = Supplier;
-//     }
-
-
-//     // Fetch products + populate category
-//     let products = await Product.find(query)
-//       .populate("category", "name")
-//       .populate("supplier", "name ")
-//       .sort({ createdAt: -1 })
-//       .skip((page - 1) * limit)
-//       .limit(Number(limit));
-
-//     // Low stock filter
-//     if (lowStock === "true") {
-//       products = products.filter(
-//         (p) => p.quantity <= p.lowStockThreshold
-//       );
-//     }
-
-//     // Total count
-//     const total = await Product.countDocuments(query);
-
-//     // Get all categories
-//     const categories = await ProductCategory.find({
-//       isActive: true,
-//     }).sort({ name: 1 });
-
-//     res.json({
-//       success: true,
-//       products,
-//       total,
-//       categories,
-//     });
-
-//   } catch (error) {
-//     next(error);
-//   }
-// };
-
 const getProducts = async (req, res, next) => {
   try {
     const {
@@ -191,9 +125,10 @@ const updateProduct = async (req, res, next) => {
 // @route   DELETE /api/products/:id
 const deleteProduct = async (req, res, next) => {
   try {
-    const product = await Product.findByIdAndUpdate(req.params.id, { isActive: false }, { new: true });
+    const product = await Product.findByIdAndDelete(req.params.id);
     if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
-    res.json({ success: true, message: 'Product deleted successfully' });
+    res.json({ success: true, message: 'Product deleted permanently' });
+
   } catch (error) {
     next(error);
   }

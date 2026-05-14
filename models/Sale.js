@@ -6,6 +6,8 @@ const saleItemSchema = new mongoose.Schema({
   sku: { type: String },
   quantity: { type: Number, required: true, min: 1 },
   unitPrice: { type: Number, required: true },
+  discount: { type: Number, default: 0 },
+  discountType: { type: String, enum: ['percentage', 'fixed'], default: 'fixed' },
   totalPrice: { type: Number, required: true },
   returnedQuantity: { type: Number, default: 0, min: 0 },
 
