@@ -24,3 +24,15 @@ export const generateReturnNumber = async () => {
 
   return `RET-${dateStr}-${String(seq).padStart(6, '0')}`;
 };
+
+export const generatePurchaseNumber = async () => {
+  const seq = await getNextSequence('purchase');
+
+  const date = new Date();
+  const dateStr =
+    date.getFullYear() +
+    String(date.getMonth() + 1).padStart(2, '0') +
+    String(date.getDate()).padStart(2, '0');
+
+  return `PUR-${dateStr}-${String(seq).padStart(6, '0')}`;
+};

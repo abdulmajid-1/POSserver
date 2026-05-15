@@ -1,4 +1,5 @@
 import { Supplier } from "../models/Supplier.js";
+import { SupplierPayment } from "../models/SupplierPayment.js";
 
 // @desc    Create Supplier
 // @route   POST /api/suppliers
@@ -209,7 +210,7 @@ export const deleteSupplier = async (req, res, next) => {
 // @route   PATCH /api/suppliers/:id/payment
 export const updateSupplierPayment = async (req, res, next) => {
     try {
-        const { paidAmount } = req.body;
+        const { amount, paymentMethod, referenceNumber, notes, date } = req.body;
 
         const supplier = await Supplier.findById(req.params.id);
 
@@ -220,15 +221,37 @@ export const updateSupplierPayment = async (req, res, next) => {
             });
         }
 
-        supplier.totalPaid += Number(paidAmount || 0);
+        // Create Payment Record
+        const payment = await SupplierPayment.create({
+            supplier: supplier._id,
+            amount: Number(amount),
+            paymentMethod,
+            referenceNumber,
+            notes,
+            date: date || new Date(),
+            createdBy: req.user?._id
+        });
 
+        supplier.totalPaid += Number(amount || 0);
         await supplier.save(); // triggers remainingBalance auto calc
 
         res.status(200).json({
             success: true,
             message: "Payment updated",
             data: supplier,
+            payment
         });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getSupplierPayments = async (req, res, next) => {
+    try {
+        const payments = await SupplierPayment.find({ supplier: req.params.id })
+            .sort({ date: -1 });
+
+        res.json({ success: true, count: payments.length, data: payments });
     } catch (error) {
         next(error);
     }

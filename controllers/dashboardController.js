@@ -5,43 +5,72 @@ import { Return } from '../models/Return.js';
 
 const getDashboardStats = async (req, res, next) => {
   try {
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startOfToday = new Date(now.setHours(0, 0, 0, 0));
+    const { startDate, endDate } = req.query;
+    
+    // Filter conditions for the range
+    const rangeFilter = {};
+    const dateFilter = {}; // for Expense model which uses 'date' field
+    
+    if (startDate || endDate) {
+      rangeFilter.createdAt = {};
+      dateFilter.date = {};
+      if (startDate) {
+        rangeFilter.createdAt.$gte = new Date(startDate);
+        dateFilter.date.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        rangeFilter.createdAt.$lte = end;
+        dateFilter.date.$lte = end;
+      }
+    }
 
-    const [salesData] = await Sale.aggregate([{ $group: { _id: null, total: { $sum: '$total' }, count: { $sum: 1 } } }]);
-    const [monthSales] = await Sale.aggregate([{ $match: { createdAt: { $gte: startOfMonth } } }, { $group: { _id: null, total: { $sum: '$total' }, count: { $sum: 1 } } }]);
-    const [todaySales] = await Sale.aggregate([{ $match: { createdAt: { $gte: startOfToday } } }, { $group: { _id: null, total: { $sum: '$total' }, count: { $sum: 1 } } }]);
-    const [expenseData] = await Expense.aggregate([{ $group: { _id: null, total: { $sum: '$amount' } } }]);
-    const [monthExpense] = await Expense.aggregate([{ $match: { date: { $gte: startOfMonth } } }, { $group: { _id: null, total: { $sum: '$amount' } } }]);
-    const [returnsData] = await Return.aggregate([{ $group: { _id: null, total: { $sum: '$totalRefund' }, count: { $sum: 1 } } }]);
+    // Range-specific data
+    const [rangeSales] = await Sale.aggregate([
+      { $match: rangeFilter },
+      { $group: { _id: null, total: { $sum: '$total' }, count: { $sum: 1 } } }
+    ]);
 
+    const [rangeExpense] = await Expense.aggregate([
+      { $match: dateFilter },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+
+    const [rangeReturns] = await Return.aggregate([
+      { $match: rangeFilter },
+      { $group: { _id: null, total: { $sum: '$totalRefund' }, count: { $sum: 1 } } }
+    ]);
+
+    // Global data (not range specific)
     const productCount = await Product.countDocuments({ isActive: true });
-    const allProducts = await Product.find({ isActive: true });
-    const lowStockProducts = allProducts.filter((p) => p.quantity <= p.lowStockThreshold);
+    const lowStockProducts = await Product.find({ 
+      isActive: true,
+      $expr: { $lte: ["$quantity", "$lowStockThreshold"] } 
+    }).limit(5);
+    const lowStockCount = await Product.countDocuments({
+      isActive: true,
+      $expr: { $lte: ["$quantity", "$lowStockThreshold"] } 
+    });
 
     const recentSales = await Sale.find().sort({ createdAt: -1 }).limit(5);
 
-    const totalRevenue = salesData?.total || 0;
-    const totalExpenses = expenseData?.total || 0;
-    const totalProfit = totalRevenue - totalExpenses - (returnsData?.total || 0);
+    const revenue = rangeSales?.total || 0;
+    const expenses = rangeExpense?.total || 0;
+    const returns = rangeReturns?.total || 0;
+    const profit = revenue - expenses - returns;
 
     res.json({
       success: true,
       stats: {
-        totalSales: salesData?.count || 0,
-        totalRevenue,
-        totalExpenses,
-        totalProfit,
-        totalReturns: returnsData?.count || 0,
-        totalReturnAmount: returnsData?.total || 0,
+        rangeSales: { count: rangeSales?.count || 0, total: revenue },
+        rangeExpenses: expenses,
+        rangeReturns: { count: rangeReturns?.count || 0, total: returns },
+        rangeProfit: profit,
         productCount,
-        lowStockCount: lowStockProducts.length,
-        monthSales: { count: monthSales?.count || 0, total: monthSales?.total || 0 },
-        todaySales: { count: todaySales?.count || 0, total: todaySales?.total || 0 },
-        monthExpenses: monthExpense?.total || 0,
+        lowStockCount,
       },
-      lowStockProducts: lowStockProducts.slice(0, 5),
+      lowStockProducts,
       recentSales,
     });
   } catch (error) { next(error); }
