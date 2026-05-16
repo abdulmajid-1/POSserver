@@ -1,5 +1,6 @@
 import { Sale } from '../models/Sale.js';
 import { Product } from '../models/Product.js';
+import { Customer } from '../models/Customer.js';
 import { generateInvoiceNumber } from '../utils/generateInvoiceNumber.js';
 
 // @desc    Create a new sale
@@ -7,42 +8,67 @@ import { generateInvoiceNumber } from '../utils/generateInvoiceNumber.js';
 const createSale = async (req, res, next) => {
   try {
     const { items, customer, discount, discountType, taxRate, paymentMethod, notes } = req.body;
-    if (!items || items.length === 0) {
-      return res.status(400).json({ success: false, message: 'No items in sale' });
-    }
-
-    // Validate stock and build items
+    // Allow empty items array for blank invoices
     const saleItems = [];
     let subtotal = 0;
-    for (const item of items) {
-      const product = await Product.findById(item.productId);
-      if (!product) return res.status(404).json({ success: false, message: `Product not found: ${item.productId}` });
-      if (product.quantity < item.quantity) {
-        return res.status(400).json({ success: false, message: `Insufficient stock for: ${product.name}` });
+    let totalProfit = 0;
+
+    if (items && items.length > 0) {
+      for (const item of items) {
+        let product = null;
+        let productName = item.productName;
+        let sku = item.sku;
+        let unitPrice = Number(item.unitPrice) || 0;
+
+        if (item.productId && !item.productId.startsWith('custom-')) {
+          product = await Product.findById(item.productId);
+          if (!product) return res.status(404).json({ success: false, message: `Product not found: ${item.productId}` });
+
+          if (product.quantity < item.quantity) {
+            return res.status(400).json({ success: false, message: `Insufficient stock for: ${product.name}` });
+          }
+
+          productName = product.name;
+          sku = product.sku;
+          // Use overridden price if provided, otherwise use default product price
+          unitPrice = item.unitPrice !== undefined ? Number(item.unitPrice) : product.salePrice;
+
+          // Deduct stock
+          product.quantity -= item.quantity;
+          await product.save();
+        }
+
+        const basePrice = unitPrice * item.quantity;
+        let itemDiscountAmount = 0;
+        if (item.discount && item.discount > 0) {
+          itemDiscountAmount = item.discountType === 'percentage'
+            ? (basePrice * item.discount) / 100
+            : item.discount;
+        }
+        const itemTotal = basePrice - itemDiscountAmount;
+
+        const purchasePrice = product ? product.purchasePrice : 0;
+        const salePrice = unitPrice;
+
+        // profit for this item
+        const itemProfit = (salePrice - purchasePrice) * item.quantity;
+        totalProfit += itemProfit
+
+
+        subtotal += itemTotal;
+        saleItems.push({
+          product: product ? product._id : null,
+          productName: productName,
+          sku: sku || '',
+          quantity: item.quantity,
+          profit: itemProfit,
+          unitPrice: unitPrice,
+          discount: item.discount || 0,
+          discountType: item.discountType || 'fixed',
+          totalPrice: itemTotal,
+          isCustomItem: !product
+        });
       }
-      const basePrice = product.salePrice * item.quantity;
-      let itemDiscountAmount = 0;
-      if (item.discount && item.discount > 0) {
-        itemDiscountAmount = item.discountType === 'percentage' 
-          ? (basePrice * item.discount) / 100 
-          : item.discount;
-      }
-      const itemTotal = basePrice - itemDiscountAmount;
-      
-      subtotal += itemTotal;
-      saleItems.push({
-        product: product._id,
-        productName: product.name,
-        sku: product.sku,
-        quantity: item.quantity,
-        unitPrice: product.salePrice,
-        discount: item.discount || 0,
-        discountType: item.discountType || 'fixed',
-        totalPrice: itemTotal,
-      });
-      // Deduct stock
-      product.quantity -= item.quantity;
-      await product.save();
     }
 
     // Calculate totals
@@ -68,9 +94,182 @@ const createSale = async (req, res, next) => {
       paymentMethod: paymentMethod || 'cash',
       notes,
       createdBy: req.user._id,
+      totalProfit
     });
 
+    // Update customer stats if it's an existing customer
+    if (customer && customer.phone) {
+      await Customer.findOneAndUpdate(
+        { phone: customer.phone, isActive: true },
+        {
+          $inc: {
+            totalPurchases: 1,
+            totalSpent: total
+          }
+        }
+      );
+    }
+
     res.status(201).json({ success: true, sale });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Update a sale
+// @route   PUT /api/sales/:id
+const updateSale = async (req, res, next) => {
+  try {
+    const { items, customer, discount, discountType, taxRate, paymentMethod, notes } = req.body;
+
+    const oldSale = await Sale.findById(req.params.id);
+    if (!oldSale) return res.status(404).json({ success: false, message: 'Sale not found' });
+
+    // 1. Revert old stock changes
+    for (const item of oldSale.items) {
+      if (item.product) {
+        await Product.findByIdAndUpdate(item.product, {
+          $inc: { quantity: item.quantity }
+        });
+      }
+    }
+
+    // 2. Build new sale items
+    const saleItems = [];
+    let subtotal = 0;
+    let totalProfit = 0; // ✅ NEW
+
+    for (const item of items) {
+      let product = null;
+      let productName = item.productName;
+      let sku = item.sku;
+      let unitPrice = Number(item.unitPrice) || 0;
+
+      if (item.productId && !item.productId.startsWith('custom-')) {
+        product = await Product.findById(item.productId);
+
+        if (!product) {
+          return res.status(404).json({
+            success: false,
+            message: `Product not found: ${item.productId}`
+          });
+        }
+
+        if (product.quantity < item.quantity) {
+          return res.status(400).json({
+            success: false,
+            message: `Insufficient stock for: ${product.name}`
+          });
+        }
+
+        productName = product.name;
+        sku = product.sku;
+        unitPrice =
+          item.unitPrice !== undefined
+            ? Number(item.unitPrice)
+            : product.salePrice;
+
+        // Deduct new stock
+        product.quantity -= item.quantity;
+        await product.save();
+      }
+
+      const basePrice = unitPrice * item.quantity;
+
+      let itemDiscountAmount = 0;
+      if (item.discount && item.discount > 0) {
+        itemDiscountAmount =
+          item.discountType === 'percentage'
+            ? (basePrice * item.discount) / 100
+            : item.discount;
+      }
+
+      const itemTotal = basePrice - itemDiscountAmount;
+
+      // =========================
+      // ✅ PROFIT CALCULATION
+      // =========================
+      const purchasePrice = product ? product.purchasePrice : 0;
+      const itemProfit = (unitPrice - purchasePrice) * item.quantity;
+
+      subtotal += itemTotal;
+      totalProfit += itemProfit;
+
+      saleItems.push({
+        product: product ? product._id : null,
+        productName,
+        sku: sku || '',
+        quantity: item.quantity,
+        unitPrice,
+        discount: item.discount || 0,
+        discountType: item.discountType || 'fixed',
+        totalPrice: itemTotal,
+        profit: itemProfit, // ✅ NEW FIELD
+        isCustomItem: !product
+      });
+    }
+
+    // 3. Recalculate totals
+    let discountAmount = 0;
+    if (discount && discount > 0) {
+      discountAmount =
+        discountType === 'percentage'
+          ? (subtotal * discount) / 100
+          : discount;
+    }
+
+    const taxableAmount = subtotal - discountAmount;
+    const taxAmount = taxRate ? (taxableAmount * taxRate) / 100 : 0;
+    const total = taxableAmount + taxAmount;
+
+    // 4. Update customer stats
+    if (oldSale.customer && oldSale.customer.phone) {
+      await Customer.findOneAndUpdate(
+        { phone: oldSale.customer.phone },
+        {
+          $inc: {
+            totalSpent: -oldSale.total,
+            totalPurchases: -1
+          }
+        }
+      );
+    }
+
+    if (customer && customer.phone) {
+      await Customer.findOneAndUpdate(
+        { phone: customer.phone },
+        {
+          $inc: {
+            totalSpent: total,
+            totalPurchases: 1
+          }
+        }
+      );
+    }
+
+    // 5. Update Sale document
+    const updatedSale = await Sale.findByIdAndUpdate(
+      req.params.id,
+      {
+        items: saleItems,
+        customer: customer || { name: 'Walk-in Customer' },
+        subtotal,
+        discount: discountAmount,
+        discountType: discountType || 'fixed',
+        tax: taxAmount,
+        taxRate: taxRate || 0,
+        total,
+
+        // ✅ IMPORTANT
+        totalProfit,
+
+        paymentMethod: paymentMethod || 'cash',
+        notes
+      },
+      { new: true }
+    );
+
+    res.json({ success: true, sale: updatedSale });
   } catch (error) {
     next(error);
   }
@@ -192,4 +391,4 @@ const calculateSaleStatus = (sale) => {
   return 'refunded';
 };
 
-export { createSale, getSales, getSale, getDailySummary, getWeeklyData, getMonthlyData, calculateSaleStatus };
+export { createSale, getSales, getSale, getDailySummary, getWeeklyData, getMonthlyData, calculateSaleStatus, updateSale };

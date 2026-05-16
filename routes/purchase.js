@@ -1,5 +1,5 @@
 import express from 'express';
-import { createPurchase, getPurchases, getPurchaseById } from '../controllers/purchaseController.js';
+import { createPurchase, getPurchases, getPurchaseById, updatePurchase, deletePurchase } from '../controllers/purchaseController.js';
 import { protect } from "../middleware/auth.js";
 
 const router = express.Router();
@@ -11,6 +11,8 @@ router.route('/')
     .post(createPurchase);
 
 router.route('/:id')
-    .get(getPurchaseById);
+    .get(getPurchaseById)
+    .put(updatePurchase)
+    .delete(deletePurchase);
 
 export default router;

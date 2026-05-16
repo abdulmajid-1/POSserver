@@ -6,6 +6,10 @@ import { Supplier } from "../models/Supplier.js";
 // @desc    Get all products
 // @route   GET /api/products
 
+function escapeRegex(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 const getProducts = async (req, res, next) => {
   try {
     const {
@@ -20,10 +24,13 @@ const getProducts = async (req, res, next) => {
     const query = { isActive: true };
 
     // SEARCH
+    // SEARCH
     if (search) {
+      const safeSearch = escapeRegex(search);
+
       query.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { sku: { $regex: search, $options: "i" } },
+        { name: { $regex: safeSearch, $options: "i" } },
+        { sku: { $regex: safeSearch, $options: "i" } },
       ];
     }
 

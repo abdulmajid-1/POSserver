@@ -256,3 +256,59 @@ export const getSupplierPayments = async (req, res, next) => {
         next(error);
     }
 };
+
+export const editSupplierPayment = async (req, res, next) => {
+    try {
+        const { paymentId } = req.params;
+        const { amount, paymentMethod, referenceNumber, notes, date } = req.body;
+
+        const payment = await SupplierPayment.findById(paymentId);
+        if (!payment) {
+            return res.status(404).json({ success: false, message: "Payment not found" });
+        }
+
+        const supplier = await Supplier.findById(payment.supplier);
+        if (!supplier) {
+            return res.status(404).json({ success: false, message: "Supplier not found" });
+        }
+
+        const diff = Number(amount) - payment.amount;
+        supplier.totalPaid += diff;
+        await supplier.save();
+
+        payment.amount = Number(amount);
+        payment.paymentMethod = paymentMethod;
+        payment.referenceNumber = referenceNumber;
+        payment.notes = notes;
+        if (date) payment.date = date;
+
+        await payment.save();
+
+        res.status(200).json({ success: true, payment });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const deleteSupplierPayment = async (req, res, next) => {
+    try {
+        const { paymentId } = req.params;
+
+        const payment = await SupplierPayment.findById(paymentId);
+        if (!payment) {
+            return res.status(404).json({ success: false, message: "Payment not found" });
+        }
+
+        const supplier = await Supplier.findById(payment.supplier);
+        if (supplier) {
+            supplier.totalPaid -= payment.amount;
+            await supplier.save();
+        }
+
+        await payment.deleteOne();
+
+        res.status(200).json({ success: true, message: "Payment deleted" });
+    } catch (error) {
+        next(error);
+    }
+};

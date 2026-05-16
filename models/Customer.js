@@ -9,6 +9,8 @@ const customerSchema = new mongoose.Schema(
     address: { type: String, default: '' },
     totalPurchases: { type: Number, default: 0 },
     totalSpent: { type: Number, default: 0 },
+    totalReturns: { type: Number, default: 0 },
+    totalRefunded: { type: Number, default: 0 },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }

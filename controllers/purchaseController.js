@@ -86,3 +86,83 @@ export const getPurchaseById = async (req, res, next) => {
         next(error);
     }
 };
+
+export const updatePurchase = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { items, subtotal, tax, total, notes, totalItems, date, status } = req.body;
+
+        const purchase = await Purchase.findById(id);
+        if (!purchase) {
+            return res.status(404).json({ success: false, message: 'Purchase not found' });
+        }
+
+        const supplier = await Supplier.findById(purchase.supplier);
+        if (!supplier) {
+            return res.status(404).json({ success: false, message: 'Supplier not found' });
+        }
+
+        // Revert old purchase from supplier & products
+        supplier.totalPurchases -= purchase.total;
+        
+        for (const oldItem of purchase.items) {
+            await Product.findByIdAndUpdate(oldItem.product, {
+                $inc: { quantity: -oldItem.quantity }
+            });
+        }
+
+        // Apply new purchase to supplier & products
+        supplier.totalPurchases += total;
+        await supplier.save();
+
+        for (const newItem of items) {
+            await Product.findByIdAndUpdate(newItem.product, {
+                $inc: { quantity: newItem.quantity },
+                $set: { purchasePrice: newItem.costPrice || newItem.unitPrice }
+            });
+        }
+
+        // Update purchase document
+        purchase.items = items;
+        purchase.subtotal = subtotal;
+        purchase.tax = tax;
+        purchase.total = total;
+        purchase.notes = notes;
+        purchase.totalItems = totalItems;
+        if (date) purchase.date = date;
+        if (status) purchase.status = status;
+        
+        await purchase.save();
+
+        res.json({ success: true, purchase });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const deletePurchase = async (req, res, next) => {
+    try {
+        const purchase = await Purchase.findById(req.params.id);
+        if (!purchase) {
+            return res.status(404).json({ success: false, message: 'Purchase not found' });
+        }
+
+        const supplier = await Supplier.findById(purchase.supplier);
+        if (supplier) {
+            supplier.totalPurchases -= purchase.total;
+            await supplier.save();
+        }
+
+        for (const item of purchase.items) {
+            await Product.findByIdAndUpdate(item.product, {
+                $inc: { quantity: -item.quantity }
+            });
+        }
+
+        await purchase.deleteOne();
+
+        res.json({ success: true, message: 'Purchase deleted successfully' });
+    } catch (error) {
+        next(error);
+    }
+};

@@ -4,6 +4,7 @@ import {
     createSale,
     getSales,
     getSale,
+    updateSale,
     getDailySummary,
     getWeeklyData,
     getMonthlyData,
@@ -21,6 +22,6 @@ router.get("/summary/monthly", getMonthlyData);
 
 router.route("/").get(getSales).post(createSale);
 
-router.route("/:id").get(getSale);
+router.route("/:id").get(getSale).put(updateSale);
 
 export default router;

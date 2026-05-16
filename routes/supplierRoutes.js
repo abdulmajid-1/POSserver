@@ -8,6 +8,8 @@ import {
     updateSupplierPayment,
     addSupplierPurchase,
     getSupplierPayments,
+    editSupplierPayment,
+    deleteSupplierPayment
 } from "../controllers/supplierController.js";
 
 const router = express.Router();
@@ -20,5 +22,9 @@ router.delete("/:id", deleteSupplier);
 router.patch("/:id/payment", updateSupplierPayment);
 router.get("/:id/payments", getSupplierPayments);
 router.patch("/:id/purchase", addSupplierPurchase);
+
+// Direct Payment operations
+router.put("/payments/:paymentId", editSupplierPayment);
+router.delete("/payments/:paymentId", deleteSupplierPayment);
 
 export default router;

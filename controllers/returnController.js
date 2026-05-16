@@ -1,18 +1,22 @@
 import { Return } from '../models/Return.js';
 import { Sale } from '../models/Sale.js';
 import { Product } from '../models/Product.js';
+import { Customer } from '../models/Customer.js';
 import { generateReturnNumber } from '../utils/generateInvoiceNumber.js';
 import { calculateSaleStatus } from '../utils/saleStatus.js';
 
 const getReturns = async (req, res, next) => {
   try {
-    const { page = 1, limit = 20 } = req.query;
-    const returns = await Return.find()
+    const { page = 1, limit = 20, phone } = req.query;
+    const query = {};
+    if (phone) query['customer.phone'] = phone;
+
+    const returns = await Return.find(query)
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(Number(limit))
       .populate('originalSale', 'invoiceNumber total');
-    const total = await Return.countDocuments();
+    const total = await Return.countDocuments(query);
     res.json({ success: true, returns, total });
   } catch (error) { next(error); }
 };
@@ -70,28 +74,19 @@ const createReturn = async (req, res, next) => {
       saleItem.returnedQuantity =
         (saleItem.returnedQuantity || 0) + item.quantity;
 
-      const refund = saleItem.unitPrice * item.quantity;
+      // Calculate refund inclusive of tax
+      const baseRefund = saleItem.unitPrice * item.quantity;
+      const taxAmount = (baseRefund * (sale.taxRate || 0)) / 100;
+      const refund = baseRefund + taxAmount;
 
       totalRefund += refund;
-
-      // returnItems.push({
-      //   product: saleItem.product,
-      //   productName: saleItem.productName,
-      //   quantity: item.quantity,
-      //   unitPrice: saleItem.unitPrice,
-      //   totalRefund: refund,
-      // });
 
       returnItems.push({
         product: saleItem.product,
         productName: saleItem.productName,
-
         originalQuantity: saleItem.quantity,
-
         returnQuantity: item.quantity,
-
         unitPrice: saleItem.unitPrice,
-
         totalRefund: refund,
       });
 
@@ -111,6 +106,7 @@ const createReturn = async (req, res, next) => {
       originalSale: sale._id,
       invoiceNumber: sale.invoiceNumber,
       items: returnItems,
+      customer: sale.customer || { name: 'Walk-in Customer' },
       totalRefund,
       reason,
       createdBy: req.user._id,
@@ -119,7 +115,18 @@ const createReturn = async (req, res, next) => {
     sale.status = calculateSaleStatus(sale);
     await sale.save();
 
-
+    // Update customer stats for returns
+    if (sale.customer && sale.customer.phone) {
+      await Customer.findOneAndUpdate(
+        { phone: sale.customer.phone, isActive: true },
+        {
+          $inc: {
+            totalReturns: 1,
+            totalRefunded: totalRefund,
+          },
+        }
+      );
+    }
 
     return res.status(201).json({
       success: true,

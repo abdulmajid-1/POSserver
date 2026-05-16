@@ -17,6 +17,7 @@ import reportsRoutes from "./routes/reports.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
 import supplierRoutes from "./routes/supplierRoutes.js";
 import purchaseRoutes from "./routes/purchase.js";
+import customerRoutes from "./routes/customerRoutes.js";
 
 
 
@@ -52,6 +53,7 @@ app.use("/api/reports", reportsRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/suppliers", supplierRoutes);
 app.use("/api/purchases", purchaseRoutes);
+app.use("/api/customers", customerRoutes);
 
 
 // Health check

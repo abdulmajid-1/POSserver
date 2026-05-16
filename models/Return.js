@@ -33,6 +33,13 @@ const returnSchema = new mongoose.Schema(
     },
 
     items: [returnItemSchema],
+    
+    customer: {
+      name: { type: String, default: 'Walk-in Customer' },
+      phone: { type: String, default: '' },
+      email: { type: String, default: '' },
+      vatNumber: { type: String, default: '' },
+    },
 
     totalRefund: {
       type: Number,
