@@ -49,7 +49,6 @@ const supplierSchema = new mongoose.Schema(
         remainingBalance: {
             type: Number,
             default: 0,
-            min: 0,
         },
 
         totalProductsSupplied: {
