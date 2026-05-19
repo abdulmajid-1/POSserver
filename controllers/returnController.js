@@ -43,7 +43,7 @@ const createReturn = async (req, res, next) => {
 
     previousReturns.forEach((r) => {
       r.items.forEach((i) => {
-        const key = i.product ? i.product.toString() : i.productName;
+        const key = i.product?.toString();
         returnedMap.set(
           key,
           (returnedMap.get(key) || 0) + i.returnQuantity
@@ -53,11 +53,9 @@ const createReturn = async (req, res, next) => {
 
     // 🔥 STEP 3: Process new return items
     for (const item of items) {
-      const saleItem = sale.items.find((si) => {
-        if (si.product && item.productId) return si.product.toString() === item.productId;
-        if (!si.product && item.productId) return si._id.toString() === item.productId;
-        return false;
-      });
+      const saleItem = sale.items.find(
+        (si) => si.product?.toString() === item.productId
+      );
 
       if (!saleItem) {
         return res.status(400).json({
@@ -85,7 +83,7 @@ const createReturn = async (req, res, next) => {
       // Calculate profit to reverse
       const profitPerItem = (saleItem.profit || 0) / saleItem.quantity;
       const refundedProfit = profitPerItem * item.quantity;
-      
+
       totalRefund += refund;
       totalRefundedProfit += refundedProfit;
 
@@ -104,17 +102,14 @@ const createReturn = async (req, res, next) => {
       const factor = Number(saleItem.conversionFactor) || 1;
       const baseQtyToRestore = parseFloat((item.quantity / factor).toFixed(4));
 
-      if (saleItem.product) {
-        await Product.findByIdAndUpdate(saleItem.product, {
-          $inc: { quantity: baseQtyToRestore },
-        });
-      }
+      await Product.findByIdAndUpdate(saleItem.product, {
+        $inc: { quantity: baseQtyToRestore },
+      });
     }
 
     // 🔥 STEP 4: Determine sale status
     const allItemsReturned = sale.items.every((si) => {
-      const key = si.product ? si.product.toString() : si.productName;
-      const returned = returnedMap.get(key) || 0;
+      const returned = returnedMap.get(si.product?.toString()) || 0;
       return returned + si.quantity === si.quantity;
     });
 
@@ -156,4 +151,12 @@ const createReturn = async (req, res, next) => {
   }
 };
 
-export { getReturns, createReturn };
+
+
+export {
+  createReturn,
+  getReturns
+}
+
+
+

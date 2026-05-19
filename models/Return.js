@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 
 const returnItemSchema = new mongoose.Schema({
-  product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
+  product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
   productName: { type: String, required: true },
 
   originalQuantity: { type: Number, required: true, min: 1 },
@@ -37,7 +37,7 @@ const returnSchema = new mongoose.Schema(
     },
 
     items: [returnItemSchema],
-    
+
     customer: {
       name: { type: String, default: 'Walk-in Customer' },
       phone: { type: String, default: '' },
