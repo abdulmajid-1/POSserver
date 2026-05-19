@@ -470,6 +470,7 @@ const getInventoryReport = async (req, res, next) => {
     next(error);
   }
 };
+
 export {
   getSalesReport,
   getExpenseReport,

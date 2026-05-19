@@ -33,10 +33,17 @@ const supplierSchema = new mongoose.Schema(
             default: "",
         },
 
+        vatNumber: {
+            type: String,
+            trim: true,
+            default: "",
+        },
+
         // Financial Info
         totalPurchases: {
             type: Number,
             default: 0,
+            min: 0,
         },
 
         totalPaid: {

@@ -5,7 +5,7 @@ import { generatePurchaseNumber } from '../utils/generateInvoiceNumber.js';
 
 export const createPurchase = async (req, res, next) => {
     try {
-        const { supplierId, items, subtotal, tax, total, notes, totalItems, date } = req.body;
+        const { supplierId, items, subtotal, tax, total, paidAmount, notes, totalItems, date } = req.body;
 
         const supplier = await Supplier.findById(supplierId);
         if (!supplier) {
@@ -21,6 +21,7 @@ export const createPurchase = async (req, res, next) => {
             subtotal,
             tax,
             total,
+            paidAmount: Number(paidAmount) || 0,
             notes,
             totalItems,
             date: date || new Date(),
@@ -77,7 +78,7 @@ export const getPurchaseById = async (req, res, next) => {
         const purchase = await Purchase.findById(req.params.id)
             .populate('supplier', 'name company phone email address')
             .populate('items.product', 'name sku');
-            
+
         if (!purchase) {
             return res.status(404).json({ success: false, message: 'Purchase not found' });
         }
@@ -104,7 +105,7 @@ export const updatePurchase = async (req, res, next) => {
 
         // Revert old purchase from supplier & products
         supplier.totalPurchases -= purchase.total;
-        
+
         for (const oldItem of purchase.items) {
             await Product.findByIdAndUpdate(oldItem.product, {
                 $inc: { quantity: -oldItem.quantity }
@@ -131,7 +132,7 @@ export const updatePurchase = async (req, res, next) => {
         purchase.totalItems = totalItems;
         if (date) purchase.date = date;
         if (status) purchase.status = status;
-        
+
         await purchase.save();
 
         res.json({ success: true, purchase });

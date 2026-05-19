@@ -50,6 +50,11 @@ const purchaseSchema = new mongoose.Schema(
             required: true,
             default: 0,
         },
+        paidAmount: {
+            type: Number,
+            default: 0,
+            min: 0,
+        },
         status: {
             type: String,
             enum: ["ordered", "received", "cancelled"],
