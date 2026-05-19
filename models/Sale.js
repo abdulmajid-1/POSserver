@@ -13,6 +13,10 @@ const saleItemSchema = new mongoose.Schema({
   quantity: { type: Number, required: true, min: 1 },
   unitPrice: { type: Number, required: true },
 
+  // Multi-unit system
+  selectedUnit: { type: String, default: '' },
+  conversionFactor: { type: Number, default: 1 },
+
   // 🔥 IMPORTANT: store purchase price at time of sale
   purchasePrice: { type: Number, default: 0 },
 

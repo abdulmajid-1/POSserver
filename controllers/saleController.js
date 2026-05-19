@@ -24,17 +24,18 @@ const createSale = async (req, res, next) => {
           product = await Product.findById(item.productId);
           if (!product) return res.status(404).json({ success: false, message: `Product not found: ${item.productId}` });
 
-          if (product.quantity < item.quantity) {
+          const conversionFactor = Number(item.conversionFactor) || 1;
+          const baseQtyToDeduct = parseFloat((item.quantity / conversionFactor).toFixed(4));
+          
+          if (product.quantity < baseQtyToDeduct) {
             return res.status(400).json({ success: false, message: `Insufficient stock for: ${product.name}` });
           }
 
           productName = product.name;
           sku = product.sku;
-          // Use overridden price if provided, otherwise use default product price
           unitPrice = item.unitPrice !== undefined ? Number(item.unitPrice) : product.salePrice;
 
-          // Deduct stock
-          product.quantity -= item.quantity;
+          product.quantity = parseFloat((product.quantity - baseQtyToDeduct).toFixed(4));
           await product.save();
         }
 
@@ -47,12 +48,13 @@ const createSale = async (req, res, next) => {
         }
         const itemTotal = basePrice - itemDiscountAmount;
 
-        const purchasePrice = product ? product.purchasePrice : 0;
-        const salePrice = unitPrice;
+        const purchasePrice = product ? product.purchasePrice : (Number(item.purchasePrice) || 0);
+        const conversionFactor = Number(item.conversionFactor) || 1;
+        const baseQty = parseFloat((item.quantity / conversionFactor).toFixed(4));
 
         // profit for this item
-        const itemProfit = (salePrice - purchasePrice) * item.quantity;
-        totalProfit += itemProfit
+        const itemProfit = itemTotal - (purchasePrice * baseQty);
+        totalProfit += itemProfit;
 
 
         subtotal += itemTotal;
@@ -61,8 +63,11 @@ const createSale = async (req, res, next) => {
           productName: productName,
           sku: sku || '',
           quantity: item.quantity,
+          selectedUnit: item.selectedUnit || '',
+          conversionFactor: Number(item.conversionFactor) || 1,
           profit: itemProfit,
           unitPrice: unitPrice,
+          purchasePrice: purchasePrice,
           discount: item.discount || 0,
           discountType: item.discountType || 'fixed',
           totalPrice: itemTotal,
@@ -76,9 +81,8 @@ const createSale = async (req, res, next) => {
     if (discount && discount > 0) {
       discountAmount = discountType === 'percentage' ? (subtotal * discount) / 100 : discount;
     }
-    const taxableAmount = subtotal - discountAmount;
-    const taxAmount = taxRate ? (taxableAmount * taxRate) / 100 : 0;
-    const total = taxableAmount + taxAmount;
+    const taxAmount = taxRate ? (subtotal * taxRate) / 100 : 0;
+    const total = subtotal + taxAmount - discountAmount;
 
     const invoiceNumber = await generateInvoiceNumber('INV');
     const sale = await Sale.create({
@@ -94,7 +98,7 @@ const createSale = async (req, res, next) => {
       paymentMethod: paymentMethod || 'cash',
       notes,
       createdBy: req.user._id,
-      totalProfit
+      totalProfit: totalProfit - discountAmount
     });
 
     // Update customer stats if it's an existing customer
@@ -128,8 +132,10 @@ const updateSale = async (req, res, next) => {
     // 1. Revert old stock changes
     for (const item of oldSale.items) {
       if (item.product) {
+        const factor = Number(item.conversionFactor) || 1;
+        const baseQty = parseFloat((item.quantity / factor).toFixed(4));
         await Product.findByIdAndUpdate(item.product, {
-          $inc: { quantity: item.quantity }
+          $inc: { quantity: baseQty }
         });
       }
     }
@@ -155,7 +161,11 @@ const updateSale = async (req, res, next) => {
           });
         }
 
-        if (product.quantity < item.quantity) {
+        // Deduct new stock
+        const conversionFactor = Number(item.conversionFactor) || 1;
+        const baseQtyToDeduct = parseFloat((item.quantity / conversionFactor).toFixed(4));
+
+        if (product.quantity < baseQtyToDeduct) {
           return res.status(400).json({
             success: false,
             message: `Insufficient stock for: ${product.name}`
@@ -164,13 +174,9 @@ const updateSale = async (req, res, next) => {
 
         productName = product.name;
         sku = product.sku;
-        unitPrice =
-          item.unitPrice !== undefined
-            ? Number(item.unitPrice)
-            : product.salePrice;
+        unitPrice = item.unitPrice !== undefined ? Number(item.unitPrice) : product.salePrice;
 
-        // Deduct new stock
-        product.quantity -= item.quantity;
+        product.quantity = parseFloat((product.quantity - baseQtyToDeduct).toFixed(4));
         await product.save();
       }
 
@@ -189,8 +195,11 @@ const updateSale = async (req, res, next) => {
       // =========================
       // ✅ PROFIT CALCULATION
       // =========================
-      const purchasePrice = product ? product.purchasePrice : 0;
-      const itemProfit = (unitPrice - purchasePrice) * item.quantity;
+      const purchasePrice = product ? product.purchasePrice : (Number(item.purchasePrice) || 0);
+      const conversionFactor = Number(item.conversionFactor) || 1;
+      const baseQty = parseFloat((item.quantity / conversionFactor).toFixed(4));
+      
+      const itemProfit = itemTotal - (purchasePrice * baseQty);
 
       subtotal += itemTotal;
       totalProfit += itemProfit;
@@ -200,7 +209,10 @@ const updateSale = async (req, res, next) => {
         productName,
         sku: sku || '',
         quantity: item.quantity,
+        selectedUnit: item.selectedUnit || '',
+        conversionFactor: conversionFactor,
         unitPrice,
+        purchasePrice: purchasePrice,
         discount: item.discount || 0,
         discountType: item.discountType || 'fixed',
         totalPrice: itemTotal,
@@ -218,9 +230,8 @@ const updateSale = async (req, res, next) => {
           : discount;
     }
 
-    const taxableAmount = subtotal - discountAmount;
-    const taxAmount = taxRate ? (taxableAmount * taxRate) / 100 : 0;
-    const total = taxableAmount + taxAmount;
+    const taxAmount = taxRate ? (subtotal * taxRate) / 100 : 0;
+    const total = subtotal + taxAmount - discountAmount;
 
     // 4. Update customer stats
     if (oldSale.customer && oldSale.customer.phone) {
@@ -261,7 +272,7 @@ const updateSale = async (req, res, next) => {
         total,
 
         // ✅ IMPORTANT
-        totalProfit,
+        totalProfit: totalProfit - discountAmount,
 
         paymentMethod: paymentMethod || 'cash',
         notes

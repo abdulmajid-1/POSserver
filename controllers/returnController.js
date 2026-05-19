@@ -33,6 +33,7 @@ const createReturn = async (req, res, next) => {
 
     const returnItems = [];
     let totalRefund = 0;
+    let totalRefundedProfit = 0;
 
     // 🔥 STEP 1: Get previous returns for this sale
     const previousReturns = await Return.find({ originalSale: saleId });
@@ -42,7 +43,7 @@ const createReturn = async (req, res, next) => {
 
     previousReturns.forEach((r) => {
       r.items.forEach((i) => {
-        const key = i.product.toString();
+        const key = i.product ? i.product.toString() : i.productName;
         returnedMap.set(
           key,
           (returnedMap.get(key) || 0) + i.returnQuantity
@@ -52,9 +53,11 @@ const createReturn = async (req, res, next) => {
 
     // 🔥 STEP 3: Process new return items
     for (const item of items) {
-      const saleItem = sale.items.find(
-        (si) => si.product.toString() === item.productId
-      );
+      const saleItem = sale.items.find((si) => {
+        if (si.product && item.productId) return si.product.toString() === item.productId;
+        if (!si.product && item.productId) return si._id.toString() === item.productId;
+        return false;
+      });
 
       if (!saleItem) {
         return res.status(400).json({
@@ -79,25 +82,39 @@ const createReturn = async (req, res, next) => {
       const taxAmount = (baseRefund * (sale.taxRate || 0)) / 100;
       const refund = baseRefund + taxAmount;
 
+      // Calculate profit to reverse
+      const profitPerItem = (saleItem.profit || 0) / saleItem.quantity;
+      const refundedProfit = profitPerItem * item.quantity;
+      
       totalRefund += refund;
+      totalRefundedProfit += refundedProfit;
 
       returnItems.push({
         product: saleItem.product,
         productName: saleItem.productName,
         originalQuantity: saleItem.quantity,
         returnQuantity: item.quantity,
+        selectedUnit: saleItem.selectedUnit || '',
+        conversionFactor: Number(saleItem.conversionFactor) || 1,
         unitPrice: saleItem.unitPrice,
         totalRefund: refund,
+        refundedProfit: refundedProfit
       });
 
-      await Product.findByIdAndUpdate(saleItem.product, {
-        $inc: { quantity: item.quantity },
-      });
+      const factor = Number(saleItem.conversionFactor) || 1;
+      const baseQtyToRestore = parseFloat((item.quantity / factor).toFixed(4));
+
+      if (saleItem.product) {
+        await Product.findByIdAndUpdate(saleItem.product, {
+          $inc: { quantity: baseQtyToRestore },
+        });
+      }
     }
 
     // 🔥 STEP 4: Determine sale status
     const allItemsReturned = sale.items.every((si) => {
-      const returned = returnedMap.get(si.product.toString()) || 0;
+      const key = si.product ? si.product.toString() : si.productName;
+      const returned = returnedMap.get(key) || 0;
       return returned + si.quantity === si.quantity;
     });
 
@@ -108,6 +125,7 @@ const createReturn = async (req, res, next) => {
       items: returnItems,
       customer: sale.customer || { name: 'Walk-in Customer' },
       totalRefund,
+      totalRefundedProfit,
       reason,
       createdBy: req.user._id,
     });

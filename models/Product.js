@@ -17,9 +17,20 @@ const productSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Supplier',
       required: false,
-    }, image: { type: String, default: '' },
+    },
+    image: { type: String, default: '' },
     description: { type: String, default: '' },
     isActive: { type: Boolean, default: true },
+    
+    // Multi-unit selling system
+    baseUnit: { type: String, default: 'unit' },
+    units: [
+      {
+        name: { type: String, required: true },
+        unitsPerBase: { type: Number, required: true, min: 0 },
+        sellingPrice: { type: Number, required: true, min: 0 },
+      }
+    ],
   },
   { timestamps: true }
 );

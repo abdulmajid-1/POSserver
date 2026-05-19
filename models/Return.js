@@ -1,14 +1,18 @@
 import mongoose from 'mongoose';
 
 const returnItemSchema = new mongoose.Schema({
-  product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+  product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
   productName: { type: String, required: true },
 
   originalQuantity: { type: Number, required: true, min: 1 },
   returnQuantity: { type: Number, required: true, min: 1 },
 
+  selectedUnit: { type: String, default: '' },
+  conversionFactor: { type: Number, default: 1 },
+
   unitPrice: { type: Number, required: true },
   totalRefund: { type: Number, required: true },
+  refundedProfit: { type: Number, default: 0 },
 });
 
 const returnSchema = new mongoose.Schema(
@@ -45,6 +49,11 @@ const returnSchema = new mongoose.Schema(
       type: Number,
       required: true,
       min: 0,
+    },
+
+    totalRefundedProfit: {
+      type: Number,
+      default: 0,
     },
 
     reason: {

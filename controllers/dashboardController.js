@@ -162,6 +162,7 @@ const getDashboardStats = async (req, res, next) => {
         $group: {
           _id: null,
           total: { $sum: '$totalRefund' },
+          totalRefundedProfit: { $sum: '$totalRefundedProfit' },
           count: { $sum: 1 },
         },
       },
@@ -210,9 +211,10 @@ const getDashboardStats = async (req, res, next) => {
     const expenses = rangeExpense?.total || 0;
 
     const returns = rangeReturns?.total || 0;
+    const returnsRefundedProfit = rangeReturns?.totalRefundedProfit || 0;
 
     // REAL BUSINESS PROFIT
-    const netProfit = salesProfit - expenses - returns;
+    const netProfit = salesProfit - expenses - returnsRefundedProfit;
 
     // =========================
     // 🚀 RESPONSE
