@@ -303,9 +303,12 @@ const getSales = async (req, res, next) => {
       if (startDate) query.createdAt.$gte = new Date(startDate);
       if (endDate) query.createdAt.$lte = new Date(new Date(endDate).setHours(23, 59, 59, 999));
     }
-    const sales = await Sale.find(query).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(Number(limit));
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 20;
+    const sales = await Sale.find(query).sort({ createdAt: -1 }).skip((pageNum - 1) * limitNum).limit(limitNum);
     const total = await Sale.countDocuments(query);
-    res.json({ success: true, sales, total, page: Number(page) });
+    const totalPages = Math.ceil(total / limitNum) || 1;
+    res.json({ success: true, sales, total, totalPages, page: pageNum });
   } catch (error) {
     next(error);
   }
