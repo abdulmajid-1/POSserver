@@ -102,9 +102,10 @@ const createSale = async (req, res, next) => {
     });
 
     // Update customer stats if it's an existing customer
-    if (customer && customer.phone) {
+    if (customer && (customer._id || customer.phone)) {
+      const custQuery = customer._id ? { _id: customer._id } : { phone: customer.phone, isActive: true };
       await Customer.findOneAndUpdate(
-        { phone: customer.phone, isActive: true },
+        custQuery,
         {
           $inc: {
             totalPurchases: 1,
@@ -234,9 +235,10 @@ const updateSale = async (req, res, next) => {
     const total = subtotal + taxAmount - discountAmount;
 
     // 4. Update customer stats
-    if (oldSale.customer && oldSale.customer.phone) {
+    if (oldSale.customer && (oldSale.customer._id || oldSale.customer.phone)) {
+      const oldCustQuery = oldSale.customer._id ? { _id: oldSale.customer._id } : { phone: oldSale.customer.phone };
       await Customer.findOneAndUpdate(
-        { phone: oldSale.customer.phone },
+        oldCustQuery,
         {
           $inc: {
             totalSpent: -oldSale.total,
@@ -246,9 +248,10 @@ const updateSale = async (req, res, next) => {
       );
     }
 
-    if (customer && customer.phone) {
+    if (customer && (customer._id || customer.phone)) {
+      const newCustQuery = customer._id ? { _id: customer._id } : { phone: customer.phone };
       await Customer.findOneAndUpdate(
-        { phone: customer.phone },
+        newCustQuery,
         {
           $inc: {
             totalSpent: total,

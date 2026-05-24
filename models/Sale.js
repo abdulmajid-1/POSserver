@@ -48,6 +48,7 @@ const saleSchema = new mongoose.Schema(
     items: [saleItemSchema],
 
     customer: {
+      _id: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer' },
       name: { type: String, default: 'Walk-in Customer' },
       phone: { type: String, default: '' },
       email: { type: String, default: '' },
