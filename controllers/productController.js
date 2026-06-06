@@ -24,10 +24,8 @@ const getProducts = async (req, res, next) => {
     const query = { isActive: true };
 
     // SEARCH
-    // SEARCH
     if (search) {
       const safeSearch = escapeRegex(search);
-
       query.$or = [
         { name: { $regex: safeSearch, $options: "i" } },
         { sku: { $regex: safeSearch, $options: "i" } },
@@ -44,18 +42,17 @@ const getProducts = async (req, res, next) => {
       query.supplier = supplier;
     }
 
-    let products = await Product.find(query)
+    // LOW STOCK FILTER — applied inside the DB query so pagination is correct
+    if (lowStock === "true") {
+      query.$expr = { $lte: ["$quantity", "$lowStockThreshold"] };
+    }
+
+    const products = await Product.find(query)
       .populate("category", "name")
       .populate("supplier", "name")
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(Number(limit));
-
-    if (lowStock === "true") {
-      products = products.filter(
-        (p) => p.quantity <= p.lowStockThreshold
-      );
-    }
 
     const total = await Product.countDocuments(query);
 
