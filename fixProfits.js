@@ -3,13 +3,14 @@ import dotenv from 'dotenv';
 import { Sale } from './models/Sale.js';
 import { Product } from './models/Product.js';
 import { Return } from './models/Return.js';
+import { DB_NAME } from './constants.js';
 
 dotenv.config();
 
 const run = async () => {
   try {
     // You can also hardcode your MongoDB URI here if process.env.MONGODB_URI doesn't work locally
-    await mongoose.connect(process.env.MONGODB_URI);
+    await mongoose.connect(`${process.env.MONGODB_URI}/${DB_NAME}`);
     console.log('Connected to MongoDB');
 
     const sales = await Sale.find({});
