@@ -12,7 +12,8 @@ const login = async (req, res, next) => {
     if (!email || !password) {
       return res.status(400).json({ success: false, message: 'Please provide email and password' });
     }
-    const user = await User.findOne({ email });
+    const cleanEmail = String(email).toLowerCase().trim();
+    const user = await User.findOne({ email: cleanEmail });
     console.log(user);
     console.log(password);
     const users = await User.find();
