@@ -1,5 +1,14 @@
 import mongoose from "mongoose";
+import dns from "dns";
 import { DB_NAME } from "../constants.js";
+
+// Set reliable public DNS servers for Node's SRV/TXT resolution (fixes EREFUSED error)
+try {
+    dns.setServers(["8.8.8.8", "1.1.1.1"]);
+} catch (e) {
+    // fallback if setServers is restricted
+}
+
 /**
  * Connect to MongoDB database
  * Establishes connection to MongoDB using mongoose

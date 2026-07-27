@@ -18,6 +18,7 @@ import categoryRoutes from "./routes/categoryRoutes.js";
 import supplierRoutes from "./routes/supplierRoutes.js";
 import purchaseRoutes from "./routes/purchase.js";
 import customerRoutes from "./routes/customerRoutes.js";
+import publicRoutes from "./routes/publicRoutes.js";
 
 
 
@@ -42,7 +43,19 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// Routes
+// Security headers for all responses
+app.use((req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("X-XSS-Protection", "1; mode=block");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    next();
+});
+
+// Public routes (NO authentication — rate-limited & sanitized)
+app.use("/api/public", publicRoutes);
+
+// Protected routes (require JWT)
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productsRoutes);
 app.use("/api/sales", salesRoutes);
