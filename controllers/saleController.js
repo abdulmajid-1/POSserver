@@ -347,15 +347,18 @@ const getDailySummary = async (req, res, next) => {
   }
 };
 
-// @desc    Get weekly chart data (last 7 days)
+// @desc    Get weekly chart data (from Saturday)
 // @route   GET /api/sales/summary/weekly
 const getWeeklyData = async (req, res, next) => {
   try {
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-    sevenDaysAgo.setHours(0, 0, 0, 0);
+    const today = new Date();
+    const day = today.getDay();
+    const daysSinceSaturday = (day + 1) % 7;
+    const saturday = new Date(today);
+    saturday.setDate(today.getDate() - daysSinceSaturday);
+    saturday.setHours(0, 0, 0, 0);
     const data = await Sale.aggregate([
-      { $match: { createdAt: { $gte: sevenDaysAgo } } },
+      { $match: { createdAt: { $gte: saturday } } },
       {
         $group: {
           _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
