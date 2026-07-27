@@ -1,6 +1,15 @@
 import { Product } from '../models/Product.js';
 import { ProductCategory } from "../models/ProductCategory.js";
 import { Supplier } from "../models/Supplier.js";
+import { round4 } from "../utils/mathUtils.js";
+
+function sanitizeProductFields(data) {
+  const p = { ...data };
+  if (p.purchasePrice !== undefined) p.purchasePrice = round4(p.purchasePrice);
+  if (p.salePrice !== undefined) p.salePrice = round4(p.salePrice);
+  if (p.quantity !== undefined) p.quantity = round4(p.quantity);
+  return p;
+}
 
 
 // @desc    Get all products
@@ -103,7 +112,8 @@ const getProduct = async (req, res, next) => {
 // @route   POST /api/products
 const createProduct = async (req, res, next) => {
   try {
-    const product = await Product.create(req.body);
+    const productData = sanitizeProductFields(req.body);
+    const product = await Product.create(productData);
     res.status(201).json({ success: true, product });
   } catch (error) {
     next(error);
@@ -114,7 +124,8 @@ const createProduct = async (req, res, next) => {
 // @route   PUT /api/products/:id
 const updateProduct = async (req, res, next) => {
   try {
-    const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
+    const productData = sanitizeProductFields(req.body);
+    const product = await Product.findByIdAndUpdate(req.params.id, productData, {
       new: true,
       runValidators: true,
     });

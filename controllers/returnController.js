@@ -4,6 +4,7 @@ import { Product } from '../models/Product.js';
 import { Customer } from '../models/Customer.js';
 import { generateReturnNumber } from '../utils/generateInvoiceNumber.js';
 import { calculateSaleStatus } from '../utils/saleStatus.js';
+import { round4 } from '../utils/mathUtils.js';
 
 const getReturns = async (req, res, next) => {
   try {
@@ -72,20 +73,21 @@ const createReturn = async (req, res, next) => {
       }
 
       // ✅ THIS is the key part (UPDATE HERE)
-      saleItem.returnedQuantity =
-        (saleItem.returnedQuantity || 0) + item.quantity;
+      saleItem.returnedQuantity = round4(
+        (saleItem.returnedQuantity || 0) + item.quantity
+      );
 
       // Calculate refund inclusive of tax
-      const baseRefund = saleItem.unitPrice * item.quantity;
-      const taxAmount = (baseRefund * (sale.taxRate || 0)) / 100;
-      const refund = baseRefund + taxAmount;
+      const baseRefund = round4(saleItem.unitPrice * item.quantity);
+      const taxAmount = round4((baseRefund * (sale.taxRate || 0)) / 100);
+      const refund = round4(baseRefund + taxAmount);
 
       // Calculate profit to reverse
-      const profitPerItem = (saleItem.profit || 0) / saleItem.quantity;
-      const refundedProfit = profitPerItem * item.quantity;
+      const profitPerItem = round4((saleItem.profit || 0) / (saleItem.quantity || 1));
+      const refundedProfit = round4(profitPerItem * item.quantity);
 
-      totalRefund += refund;
-      totalRefundedProfit += refundedProfit;
+      totalRefund = round4(totalRefund + refund);
+      totalRefundedProfit = round4(totalRefundedProfit + refundedProfit);
 
       returnItems.push({
         product: saleItem.product,
@@ -98,8 +100,7 @@ const createReturn = async (req, res, next) => {
         totalRefund: refund,
         refundedProfit: refundedProfit
       });
-
-      const factor = Number(saleItem.conversionFactor) || 1;
+    }    const factor = Number(saleItem.conversionFactor) || 1;
       const baseQtyToRestore = parseFloat((item.quantity / factor).toFixed(4));
 
       await Product.findByIdAndUpdate(saleItem.product, {
