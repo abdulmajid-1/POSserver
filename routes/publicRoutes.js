@@ -38,9 +38,11 @@ function sanitizeReceipt(sale) {
     createdAt: sale.createdAt,
     status: sale.status,
 
-    // Customer info — only name (no internal _id, no phone for privacy)
+    // Customer info — only public customer details (name, phone, vatNumber)
     customer: {
       name: sale.customer?.name || "Walk-in Customer",
+      phone: sale.customer?.phone || "",
+      vatNumber: sale.customer?.vatNumber || "",
     },
 
     // Items — only what appears on a printed receipt
@@ -84,7 +86,7 @@ router.get("/receipt/:id", async (req, res) => {
 
     // Fetch ONLY the fields we need — never fetch sensitive fields from DB
     const sale = await Sale.findById(id).select(
-      "invoiceNumber createdAt status customer.name items.productName items.quantity items.selectedUnit items.unitPrice items.discount items.discountType items.totalPrice subtotal discount discountType tax taxRate total paymentMethod"
+      "invoiceNumber createdAt status customer.name customer.phone customer.vatNumber items.productName items.quantity items.selectedUnit items.unitPrice items.discount items.discountType items.totalPrice subtotal discount discountType tax taxRate total paymentMethod"
     );
 
     if (!sale) {
