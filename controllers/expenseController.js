@@ -1,5 +1,4 @@
 import { Expense } from '../models/Expense.js';
-import { round4 } from '../utils/mathUtils.js';
 
 /* =========================================
    GET ALL EXPENSES (with filters + pagination)
@@ -101,10 +100,8 @@ const getExpenses = async (req, res, next) => {
 // @route   POST /api/expenses
 const createExpense = async (req, res, next) => {
   try {
-    const expenseData = { ...req.body };
-    if (expenseData.amount) expenseData.amount = round4(expenseData.amount);
     const expense = await Expense.create({
-      ...expenseData,
+      ...req.body,
       createdBy: req.user?._id || null,
     });
 

@@ -2,7 +2,6 @@ import { Sale } from '../models/Sale.js';
 import { Product } from '../models/Product.js';
 import { Customer } from '../models/Customer.js';
 import { generateInvoiceNumber } from '../utils/generateInvoiceNumber.js';
-import { round4 } from '../utils/mathUtils.js';
 
 // @desc    Create a new sale
 // @route   POST /api/sales
@@ -26,38 +25,39 @@ const createSale = async (req, res, next) => {
           if (!product) return res.status(404).json({ success: false, message: `Product not found: ${item.productId}` });
 
           const conversionFactor = Number(item.conversionFactor) || 1;
-          const baseQtyToDeduct = round4(item.quantity / conversionFactor);
-          
+          const baseQtyToDeduct = parseFloat((item.quantity / conversionFactor).toFixed(4));
+
           if (product.quantity < baseQtyToDeduct) {
             return res.status(400).json({ success: false, message: `Insufficient stock for: ${product.name}` });
           }
 
           productName = product.name;
           sku = product.sku;
-          unitPrice = item.unitPrice !== undefined ? round4(item.unitPrice) : product.salePrice;
+          unitPrice = item.unitPrice !== undefined ? Number(item.unitPrice) : product.salePrice;
 
-          product.quantity = round4(product.quantity - baseQtyToDeduct);
+          product.quantity = parseFloat((product.quantity - baseQtyToDeduct).toFixed(4));
           await product.save();
         }
 
-        const basePrice = round4(unitPrice * item.quantity);
+        const basePrice = unitPrice * item.quantity;
         let itemDiscountAmount = 0;
         if (item.discount && item.discount > 0) {
           itemDiscountAmount = item.discountType === 'percentage'
-            ? round4((basePrice * item.discount) / 100)
-            : round4(item.discount);
+            ? (basePrice * item.discount) / 100
+            : item.discount;
         }
-        const itemTotal = round4(basePrice - itemDiscountAmount);
+        const itemTotal = basePrice - itemDiscountAmount;
 
-        const purchasePrice = product ? product.purchasePrice : round4(item.purchasePrice || 0);
+        const purchasePrice = product ? product.purchasePrice : (Number(item.purchasePrice) || 0);
         const conversionFactor = Number(item.conversionFactor) || 1;
-        const baseQty = round4(item.quantity / conversionFactor);
+        const baseQty = parseFloat((item.quantity / conversionFactor).toFixed(4));
 
         // profit for this item
-        const itemProfit = round4(itemTotal - (purchasePrice * baseQty));
-        totalProfit = round4(totalProfit + itemProfit);
+        const itemProfit = itemTotal - (purchasePrice * baseQty);
+        totalProfit += itemProfit;
 
-        subtotal = round4(subtotal + itemTotal);
+
+        subtotal += itemTotal;
         saleItems.push({
           product: product ? product._id : null,
           productName: productName,
@@ -79,26 +79,26 @@ const createSale = async (req, res, next) => {
     // Calculate totals
     let discountAmount = 0;
     if (discount && discount > 0) {
-      discountAmount = discountType === 'percentage' ? round4((subtotal * discount) / 100) : round4(discount);
+      discountAmount = discountType === 'percentage' ? (subtotal * discount) / 100 : discount;
     }
-    const taxAmount = taxRate ? round4((subtotal * taxRate) / 100) : 0;
-    const total = round4(subtotal + taxAmount - discountAmount);
+    const taxAmount = taxRate ? (subtotal * taxRate) / 100 : 0;
+    const total = subtotal + taxAmount - discountAmount;
 
     const invoiceNumber = await generateInvoiceNumber('INV');
     const sale = await Sale.create({
       invoiceNumber,
       items: saleItems,
       customer: customer || { name: 'Walk-in Customer' },
-      subtotal: round4(subtotal),
+      subtotal,
       discount: discountAmount,
       discountType: discountType || 'fixed',
       tax: taxAmount,
       taxRate: taxRate || 0,
-      total: round4(total),
+      total,
       paymentMethod: paymentMethod || 'cash',
       notes,
       createdBy: req.user._id,
-      totalProfit: round4(totalProfit - discountAmount)
+      totalProfit: totalProfit - discountAmount
     });
 
     // Update customer stats if it's an existing customer
@@ -134,7 +134,7 @@ const updateSale = async (req, res, next) => {
     for (const item of oldSale.items) {
       if (item.product) {
         const factor = Number(item.conversionFactor) || 1;
-        const baseQty = round4(item.quantity / factor);
+        const baseQty = parseFloat((item.quantity / factor).toFixed(4));
         await Product.findByIdAndUpdate(item.product, {
           $inc: { quantity: baseQty }
         });
@@ -144,7 +144,7 @@ const updateSale = async (req, res, next) => {
     // 2. Build new sale items
     const saleItems = [];
     let subtotal = 0;
-    let totalProfit = 0;
+    let totalProfit = 0; // ✅ NEW
 
     for (const item of items) {
       let product = null;
@@ -164,7 +164,7 @@ const updateSale = async (req, res, next) => {
 
         // Deduct new stock
         const conversionFactor = Number(item.conversionFactor) || 1;
-        const baseQtyToDeduct = round4(item.quantity / conversionFactor);
+        const baseQtyToDeduct = parseFloat((item.quantity / conversionFactor).toFixed(4));
 
         if (product.quantity < baseQtyToDeduct) {
           return res.status(400).json({
@@ -175,32 +175,35 @@ const updateSale = async (req, res, next) => {
 
         productName = product.name;
         sku = product.sku;
-        unitPrice = item.unitPrice !== undefined ? round4(item.unitPrice) : product.salePrice;
+        unitPrice = item.unitPrice !== undefined ? Number(item.unitPrice) : product.salePrice;
 
-        product.quantity = round4(product.quantity - baseQtyToDeduct);
+        product.quantity = parseFloat((product.quantity - baseQtyToDeduct).toFixed(4));
         await product.save();
       }
 
-      const basePrice = round4(unitPrice * item.quantity);
+      const basePrice = unitPrice * item.quantity;
 
       let itemDiscountAmount = 0;
       if (item.discount && item.discount > 0) {
         itemDiscountAmount =
           item.discountType === 'percentage'
-            ? round4((basePrice * item.discount) / 100)
-            : round4(item.discount);
+            ? (basePrice * item.discount) / 100
+            : item.discount;
       }
 
-      const itemTotal = round4(basePrice - itemDiscountAmount);
+      const itemTotal = basePrice - itemDiscountAmount;
 
-      const purchasePrice = product ? product.purchasePrice : round4(item.purchasePrice || 0);
+      // =========================
+      // ✅ PROFIT CALCULATION
+      // =========================
+      const purchasePrice = product ? product.purchasePrice : (Number(item.purchasePrice) || 0);
       const conversionFactor = Number(item.conversionFactor) || 1;
-      const baseQty = round4(item.quantity / conversionFactor);
-      
-      const itemProfit = round4(itemTotal - (purchasePrice * baseQty));
+      const baseQty = parseFloat((item.quantity / conversionFactor).toFixed(4));
 
-      subtotal = round4(subtotal + itemTotal);
-      totalProfit = round4(totalProfit + itemProfit);
+      const itemProfit = itemTotal - (purchasePrice * baseQty);
+
+      subtotal += itemTotal;
+      totalProfit += itemProfit;
 
       saleItems.push({
         product: product ? product._id : null,
@@ -214,7 +217,7 @@ const updateSale = async (req, res, next) => {
         discount: item.discount || 0,
         discountType: item.discountType || 'fixed',
         totalPrice: itemTotal,
-        profit: itemProfit,
+        profit: itemProfit, // ✅ NEW FIELD
         isCustomItem: !product
       });
     }
@@ -224,12 +227,12 @@ const updateSale = async (req, res, next) => {
     if (discount && discount > 0) {
       discountAmount =
         discountType === 'percentage'
-          ? round4((subtotal * discount) / 100)
-          : round4(discount);
+          ? (subtotal * discount) / 100
+          : discount;
     }
 
-    const taxAmount = taxRate ? round4((subtotal * taxRate) / 100) : 0;
-    const total = round4(subtotal + taxAmount - discountAmount);
+    const taxAmount = taxRate ? (subtotal * taxRate) / 100 : 0;
+    const total = subtotal + taxAmount - discountAmount;
 
     // 4. Update customer stats
     if (oldSale.customer && (oldSale.customer._id || oldSale.customer.phone)) {

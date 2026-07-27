@@ -2,7 +2,6 @@ import { Purchase } from '../models/Purchase.js';
 import { Supplier } from '../models/Supplier.js';
 import { Product } from '../models/Product.js';
 import { generatePurchaseNumber } from '../utils/generateInvoiceNumber.js';
-import { round4 } from '../utils/mathUtils.js';
 
 export const createPurchase = async (req, res, next) => {
     try {
@@ -18,15 +17,11 @@ export const createPurchase = async (req, res, next) => {
         const purchase = await Purchase.create({
             purchaseNumber,
             supplier: supplierId,
-            items: (items || []).map((i) => ({
-              ...i,
-              costPrice: round4(i.costPrice),
-              totalPrice: round4(i.totalPrice),
-            })),
-            subtotal: round4(subtotal),
-            tax: round4(tax),
-            total: round4(total),
-            paidAmount: round4(paidAmount || 0),
+            items: items || [],
+            subtotal,
+            tax,
+            total,
+            paidAmount: Number(paidAmount) || 0,
             notes,
             totalItems,
             date: date || new Date(),
@@ -34,7 +29,7 @@ export const createPurchase = async (req, res, next) => {
         });
 
         // Update Supplier Financials
-        supplier.totalPurchases = round4(supplier.totalPurchases + round4(total));
+        supplier.totalPurchases += total;
         await supplier.save();
 
         // Update Product Stock
