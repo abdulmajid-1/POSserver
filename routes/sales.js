@@ -8,6 +8,7 @@ import {
     getDailySummary,
     getWeeklyData,
     getMonthlyData,
+    reportSaleToZatcaController,
 } from "../controllers/saleController.js";
 
 import { protect } from "../middleware/auth.js";
@@ -19,6 +20,8 @@ router.use(protect);
 router.get("/summary/daily", getDailySummary);
 router.get("/summary/weekly", getWeeklyData);
 router.get("/summary/monthly", getMonthlyData);
+
+router.post("/:id/report-zatca", reportSaleToZatcaController);
 
 router.route("/").get(getSales).post(createSale);
 

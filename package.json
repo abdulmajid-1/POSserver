@@ -9,6 +9,8 @@
     "seed": "node utils/seeder.js"
   },
   "dependencies": {
+    "@xmldom/xmldom": "^0.9.10",
+    "axios": "^1.19.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
@@ -16,7 +18,13 @@
     "express-rate-limit": "^8.6.1",
     "express-validator": "^7.2.1",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^9.6.2"
+    "mongoose": "^9.6.2",
+    "qrcode": "^1.5.4",
+    "uuid": "^14.0.1",
+    "xml-crypto": "^6.1.2",
+    "xmldsigjs": "^2.8.8",
+    "xpath": "^0.0.34",
+    "zatca-xml-js": "^0.1.9"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"

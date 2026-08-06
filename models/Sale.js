@@ -89,6 +89,31 @@ const saleSchema = new mongoose.Schema(
       enum: ['completed', 'refunded', 'partial_refund'],
       default: 'completed',
     },
+
+    // 🧾 ZATCA Phase 2 E-Invoicing Data
+    zatca: {
+      icv: { type: Number },
+      invoiceSerialNumber: { type: String },
+      invoiceUUID: { type: String },        // UUID embedded in the signed XML
+      invoiceType: {                        // B2C (Simplified) | B2B (Standard/Clearance)
+        type: String,
+        enum: ['B2C', 'B2B'],
+      },
+      pih: { type: String },
+      invoiceHash: { type: String },
+      digitalSignature: { type: String },   // ECDSA signature (base64 DER)
+      qrCode: { type: String },
+      signedXml: { type: String },          // XML we signed locally
+      clearedXml: { type: String },         // B2B only — ZATCA-stamped XML returned from clearance
+      reportingStatus: {
+        type: String,
+        enum: ['NOT_REPORTED', 'REPORTED', 'CLEARED', 'FAILED', 'PENDING'],
+        default: 'NOT_REPORTED',
+      },
+      clearanceStatus: { type: String },    // Raw clearance status from ZATCA (B2B)
+      validationResults: { type: Object },
+      submittedAt: { type: Date },
+    },
   },
   { timestamps: true }
 );

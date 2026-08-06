@@ -2,6 +2,8 @@ import { Sale } from '../models/Sale.js';
 import { Product } from '../models/Product.js';
 import { Customer } from '../models/Customer.js';
 import { generateInvoiceNumber } from '../utils/generateInvoiceNumber.js';
+import { reportSaleToZatca } from '../services/zatca/ZatcaService.js';
+import { calculateSaleStatus } from '../utils/saleStatus.js';
 
 // @desc    Create a new sale
 // @route   POST /api/sales
@@ -114,6 +116,14 @@ const createSale = async (req, res, next) => {
         }
       );
     }
+
+    // Auto-report to ZATCA Phase 2 immediately so the QR code is on the first receipt print.
+    // Runs in the background — does NOT block the POS response.
+    reportSaleToZatca(sale._id.toString()).then((updatedSale) => {
+      // Success — ZATCA QR code is now stored in updatedSale.zatca.qrCode
+    }).catch((err) => {
+      console.error(`[ZATCA] Background reporting failed for sale ${sale._id}:`, err.message);
+    });
 
     res.status(201).json({ success: true, sale });
   } catch (error) {
@@ -397,18 +407,31 @@ const getMonthlyData = async (req, res, next) => {
     next(error);
   }
 };
-const calculateSaleStatus = (sale) => {
-  let totalSold = 0;
-  let totalReturned = 0;
-
-  sale.items.forEach((item) => {
-    totalSold += item.quantity;
-    totalReturned += item.returnedQuantity || 0;
-  });
-
-  if (totalReturned === 0) return 'completed';
-  if (totalReturned < totalSold) return 'partial_refund';
-  return 'refunded';
+// @desc    Report a sale to ZATCA Phase 2 E-Invoicing & generate QR Code
+// @route   POST /api/sales/:id/report-zatca
+const reportSaleToZatcaController = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { otp } = req.body;
+    const updatedSale = await reportSaleToZatca(id, otp || '12345');
+    res.json({
+      success: true,
+      message: 'Sale successfully reported to ZATCA',
+      data: updatedSale,
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
-export { createSale, getSales, getSale, getDailySummary, getWeeklyData, getMonthlyData, calculateSaleStatus, updateSale };
+export {
+  createSale,
+  getSales,
+  getSale,
+  getDailySummary,
+  getWeeklyData,
+  getMonthlyData,
+  calculateSaleStatus,
+  updateSale,
+  reportSaleToZatcaController,
+};
