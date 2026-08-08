@@ -117,14 +117,6 @@ const createSale = async (req, res, next) => {
       );
     }
 
-    // Auto-report to ZATCA Phase 2 immediately so the QR code is on the first receipt print.
-    // Runs in the background — does NOT block the POS response.
-    reportSaleToZatca(sale._id.toString()).then((updatedSale) => {
-      // Success — ZATCA QR code is now stored in updatedSale.zatca.qrCode
-    }).catch((err) => {
-      console.error(`[ZATCA] Background reporting failed for sale ${sale._id}:`, err.message);
-    });
-
     res.status(201).json({ success: true, sale });
   } catch (error) {
     next(error);
