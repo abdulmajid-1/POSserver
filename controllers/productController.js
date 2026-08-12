@@ -103,7 +103,14 @@ const getProduct = async (req, res, next) => {
 // @route   POST /api/products
 const createProduct = async (req, res, next) => {
   try {
-    const product = await Product.create(req.body);
+    const payload = { ...req.body };
+    if (!payload.supplier || payload.supplier === '') {
+      payload.supplier = null;
+    }
+    if (!payload.category || payload.category === '') {
+      delete payload.category;
+    }
+    const product = await Product.create(payload);
     res.status(201).json({ success: true, product });
   } catch (error) {
     next(error);
@@ -114,7 +121,11 @@ const createProduct = async (req, res, next) => {
 // @route   PUT /api/products/:id
 const updateProduct = async (req, res, next) => {
   try {
-    const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
+    const payload = { ...req.body };
+    if (!payload.supplier || payload.supplier === '') {
+      payload.supplier = null;
+    }
+    const product = await Product.findByIdAndUpdate(req.params.id, payload, {
       new: true,
       runValidators: true,
     });

@@ -16,23 +16,57 @@ const createSale = async (req, res, next) => {
     let totalProfit = 0;
 
     if (items && items.length > 0) {
-      for (const item of items) {
-        let product = null;
-        let productName = item.productName;
-        let sku = item.sku;
-        let unitPrice = Number(item.unitPrice) || 0;
+      // =========================================================================
+      // PASS 1: PRE-VALIDATION (Zero DB Mutations)
+      // Check stock sufficiency for ALL cart items first.
+      // If ANY item fails, abort immediately before modifying any product in DB!
+      // =========================================================================
+      const preparedItems = [];
+      const stockErrors = [];
 
+      for (const item of items) {
         if (item.productId && !item.productId.startsWith('custom-')) {
-          product = await Product.findById(item.productId);
-          if (!product) return res.status(404).json({ success: false, message: `Product not found: ${item.productId}` });
+          const product = await Product.findById(item.productId);
+          if (!product) {
+            return res.status(404).json({ success: false, message: `Product not found: ${item.productId}` });
+          }
 
           const conversionFactor = Number(item.conversionFactor) || 1;
           const baseQtyToDeduct = parseFloat((item.quantity / conversionFactor).toFixed(4));
 
           if (product.quantity < baseQtyToDeduct) {
-            return res.status(400).json({ success: false, message: `Insufficient stock for: ${product.name}` });
+            const unitLabel = product.baseUnit || 'unit';
+            const reqQtyStr = item.selectedUnit && item.selectedUnit !== unitLabel
+              ? `${item.quantity} ${item.selectedUnit} (${baseQtyToDeduct} ${unitLabel})`
+              : `${item.quantity} ${unitLabel}`;
+
+            stockErrors.push(`"${product.name}" (Requested: ${reqQtyStr}, Available: ${product.quantity} ${unitLabel})`);
           }
 
+          preparedItems.push({ item, product, conversionFactor, baseQtyToDeduct });
+        } else {
+          preparedItems.push({ item, product: null, conversionFactor: Number(item.conversionFactor) || 1, baseQtyToDeduct: 0 });
+        }
+      }
+
+      // If any item failed pre-validation, abort immediately! Zero stock mutated in DB.
+      if (stockErrors.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: `Insufficient stock for: ${stockErrors.join(' | ')}`
+        });
+      }
+
+      // =========================================================================
+      // PASS 2: EXECUTION (Stock Deduction & Sale Payload Construction)
+      // Executed ONLY when all items are verified to have sufficient stock.
+      // =========================================================================
+      for (const { item, product, conversionFactor, baseQtyToDeduct } of preparedItems) {
+        let productName = item.productName;
+        let sku = item.sku;
+        let unitPrice = Number(item.unitPrice) || 0;
+
+        if (product) {
           productName = product.name;
           sku = product.sku;
           unitPrice = item.unitPrice !== undefined ? Number(item.unitPrice) : product.salePrice;
@@ -51,13 +85,10 @@ const createSale = async (req, res, next) => {
         const itemTotal = basePrice - itemDiscountAmount;
 
         const purchasePrice = product ? product.purchasePrice : (Number(item.purchasePrice) || 0);
-        const conversionFactor = Number(item.conversionFactor) || 1;
         const baseQty = parseFloat((item.quantity / conversionFactor).toFixed(4));
 
-        // profit for this item
         const itemProfit = itemTotal - (purchasePrice * baseQty);
         totalProfit += itemProfit;
-
 
         subtotal += itemTotal;
         saleItems.push({
@@ -66,7 +97,7 @@ const createSale = async (req, res, next) => {
           sku: sku || '',
           quantity: item.quantity,
           selectedUnit: item.selectedUnit || '',
-          conversionFactor: Number(item.conversionFactor) || 1,
+          conversionFactor: conversionFactor,
           profit: itemProfit,
           unitPrice: unitPrice,
           purchasePrice: purchasePrice,
