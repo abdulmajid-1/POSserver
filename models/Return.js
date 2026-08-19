@@ -72,6 +72,34 @@ const returnSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
     },
+
+    // 🧾 ZATCA Phase 2 E-Invoicing Data (Credit Note)
+    wasZatcaReported: { type: Boolean, default: false },
+    originalZatcaInvoiceNumber: { type: String, default: '' },
+
+    zatca: {
+      icv: { type: Number },
+      invoiceSerialNumber: { type: String },
+      invoiceUUID: { type: String },
+      invoiceType: {
+        type: String,
+        enum: ['B2C', 'B2B'],
+      },
+      pih: { type: String },
+      invoiceHash: { type: String },
+      digitalSignature: { type: String },
+      qrCode: { type: String },
+      signedXml: { type: String },
+      clearedXml: { type: String },
+      reportingStatus: {
+        type: String,
+        enum: ['NOT_REPORTED', 'REPORTED', 'CLEARED', 'FAILED', 'PENDING'],
+        default: 'NOT_REPORTED',
+      },
+      clearanceStatus: { type: String },
+      validationResults: { type: Object },
+      submittedAt: { type: Date },
+    },
   },
   { timestamps: true }
 );

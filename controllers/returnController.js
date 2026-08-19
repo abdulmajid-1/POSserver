@@ -4,6 +4,7 @@ import { Product } from '../models/Product.js';
 import { Customer } from '../models/Customer.js';
 import { generateReturnNumber } from '../utils/generateInvoiceNumber.js';
 import { calculateSaleStatus } from '../utils/saleStatus.js';
+import { reportReturnCreditNoteToZatca } from '../services/zatca/ZatcaService.js';
 
 const getReturns = async (req, res, next) => {
   try {
@@ -21,6 +22,17 @@ const getReturns = async (req, res, next) => {
   } catch (error) { next(error); }
 };
 
+const getReturn = async (req, res, next) => {
+  try {
+    const returnDoc = await Return.findById(req.params.id).populate('originalSale', 'invoiceNumber total');
+    if (!returnDoc) {
+      return res.status(404).json({ success: false, message: 'Return not found' });
+    }
+    res.json({ success: true, return: returnDoc });
+  } catch (error) {
+    next(error);
+  }
+};
 
 const createReturn = async (req, res, next) => {
   try {
@@ -113,6 +125,9 @@ const createReturn = async (req, res, next) => {
       return returned + si.quantity === si.quantity;
     });
 
+    // Check if original sale was ZATCA reported
+    const wasZatcaReported = !!(sale.zatca && (sale.zatca.reportingStatus === 'REPORTED' || sale.zatca.reportingStatus === 'CLEARED'));
+
     const newReturn = await Return.create({
       returnNumber: await generateReturnNumber(),
       originalSale: sale._id,
@@ -123,6 +138,8 @@ const createReturn = async (req, res, next) => {
       totalRefundedProfit,
       reason,
       createdBy: req.user._id,
+      wasZatcaReported,
+      originalZatcaInvoiceNumber: wasZatcaReported ? sale.invoiceNumber : '',
     });
 
     sale.status = calculateSaleStatus(sale);
@@ -151,12 +168,28 @@ const createReturn = async (req, res, next) => {
   }
 };
 
-
+const reportCreditNoteToZatcaController = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { otp } = req.body;
+    const updatedReturn = await reportReturnCreditNoteToZatca(id, otp || '12345');
+    res.json({
+      success: true,
+      message: 'Credit Note successfully reported to ZATCA',
+      data: updatedReturn,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 export {
   createReturn,
-  getReturns
-}
+  getReturns,
+  getReturn,
+  reportCreditNoteToZatcaController,
+};
+
 
 
 

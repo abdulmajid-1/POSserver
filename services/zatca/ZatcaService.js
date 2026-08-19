@@ -1,5 +1,6 @@
 import EGS from './EGS.js';
 import { Sale } from '../../models/Sale.js';
+import { Return } from '../../models/Return.js';
 import { Counter } from '../../models/Counter.js';
 
 /**
@@ -95,16 +96,8 @@ function formatZatcaTimestamp(dateInput) {
  * Rule: a customer with a VAT number = B2B business transaction.
  */
 function detectInvoiceSubType(sale) {
-  // If CSID is configured as 0100 (Simplified Tax Invoices only),
-  // B2B Standard Clearance is not supported by ZATCA on this CSID.
-  // All invoices must be formatted and reported as B2C (Simplified).
-  const invoiceTypeSetting = process.env.CSR_INVOICE_TYPE || process.env.ZATCA_INVOICE_TYPE || '0100';
-  if (invoiceTypeSetting === '0100') {
-    return 'B2C';
-  }
-
-  const vatNumber = sale.customer && sale.customer.vatNumber;
-  return vatNumber && vatNumber.trim() ? 'B2B' : 'B2C';
+  const vatNumber = sale?.customer?.vatNumber || sale?.customerVatNumber;
+  return vatNumber && String(vatNumber).trim().length > 0 ? 'B2B' : 'B2C';
 }
 
 /**
@@ -161,9 +154,14 @@ export function buildZatcaInvoicePayload(sale, icv, pih, egsConfig) {
   // Build buyer block for B2B invoices
   let buyer = null;
   if (invoiceSubType === 'B2B' && sale.customer) {
+    const buyerVat = String(sale.customer.vatNumber || '').trim();
+    const sellerVat = String(egsConfig.VAT_number || '314852932200003').trim();
+    if (buyerVat && buyerVat === sellerVat) {
+      throw new Error(`Buyer VAT number (${buyerVat}) cannot be identical to Seller VAT number (${sellerVat}). Please update the customer's VAT number.`);
+    }
     buyer = {
       name: sale.customer.name || 'Business Customer',
-      vatNumber: sale.customer.vatNumber,
+      vatNumber: buyerVat,
       street: sale.customer.street || 'N/A',
       city: sale.customer.city || 'N/A',
       postalZone: sale.customer.postalZone || '00000',
@@ -237,10 +235,10 @@ export async function reportSaleToZatca(saleId, otp = '12345') {
 
   // 3. Build invoice payload (auto-detects B2C vs B2B)
   const invoicePayload = buildZatcaInvoicePayload(sale, icv, pih, egsConfig);
-  const invoiceSubType = invoicePayload.invoiceSubType; // 'B2C' | 'B2B'
+  let invoiceSubType = invoicePayload.invoiceSubType; // 'B2C' | 'B2B'
 
   // 4. Sign the invoice locally (builds XML, hashes, signs with private key)
-  const { signedInvoiceXml, invoiceHash, qr, digitalSignature } = egs.signInvoice(
+  let { signedInvoiceXml, invoiceHash, qr, digitalSignature } = egs.signInvoice(
     invoicePayload,
     binarySecurityToken,
     privateKey
@@ -286,8 +284,27 @@ export async function reportSaleToZatca(saleId, otp = '12345') {
             clearedXml = zatcaResult.clearedInvoiceXml || null;
           }
         } catch (clearErr) {
-          if (clearErr.message && (clearErr.message.includes('does not cover Standard documents') || clearErr.message.includes('certificate-permissions'))) {
-            // Fallback to B2C Simplified Reporting API if CSID is 0100
+          const isPermissionErr = clearErr.message && (
+            clearErr.message.includes('does not cover Standard documents') ||
+            clearErr.message.includes('certificate-permissions') ||
+            clearErr.message.includes('XML-INVOICE-ERROR')
+          );
+          if (isPermissionErr) {
+            // CSID is 0100 (Simplified only). Re-build and re-sign payload as B2C (0200000)
+            invoicePayload.invoiceSubType = 'B2C';
+            invoicePayload.buyer = null;
+            invoiceSubType = 'B2C';
+
+            const b2cSigned = egs.signInvoice(
+              invoicePayload,
+              binarySecurityToken,
+              privateKey
+            );
+            signedInvoiceXml = b2cSigned.signedInvoiceXml;
+            invoiceHash = b2cSigned.invoiceHash;
+            qr = b2cSigned.qr;
+            digitalSignature = b2cSigned.digitalSignature;
+
             zatcaResult = await egs.reportInvoice(
               signedInvoiceXml,
               invoiceHash,
@@ -342,3 +359,255 @@ export async function reportSaleToZatca(saleId, otp = '12345') {
 
   return sale;
 }
+
+/**
+ * Converts a POS Return document to the ZATCA Credit Note JSON structure.
+ */
+export function buildCreditNotePayload(returnDoc, originalSale, icv, pih, egsConfig) {
+  const { issueDate, issueTime } = formatZatcaTimestamp(returnDoc.createdAt || new Date());
+
+  const invoiceSubType = detectInvoiceSubType(originalSale);
+
+  const lineItems = (returnDoc.items || []).map((item, idx) => {
+    const vatRate = (originalSale.taxRate != null ? originalSale.taxRate : 15) / 100;
+
+    return {
+      id: String(idx + 1),
+      name: item.productName || 'Returned Item',
+      quantity: Number(item.returnQuantity) || 1,
+      tax_exclusive_price: Number(item.unitPrice) || 0,
+      VAT_percent: vatRate,
+      other_taxes: [],
+      discounts: [],
+    };
+  });
+
+  if (lineItems.length === 0) {
+    const vatRate = (originalSale.taxRate != null ? originalSale.taxRate : 15) / 100;
+    lineItems.push({
+      id: '1',
+      name: 'Returned Item',
+      quantity: 1,
+      tax_exclusive_price: returnDoc.totalRefund || 0,
+      VAT_percent: vatRate,
+      other_taxes: [],
+      discounts: [],
+    });
+  }
+
+  let buyer = null;
+  if (invoiceSubType === 'B2B' && (returnDoc.customer || originalSale.customer)) {
+    const cust = (returnDoc.customer && returnDoc.customer.vatNumber) ? returnDoc.customer : originalSale.customer;
+    const buyerVat = String(cust?.vatNumber || '').trim();
+    const sellerVat = String(egsConfig.VAT_number || '314852932200003').trim();
+    if (buyerVat && buyerVat === sellerVat) {
+      throw new Error(`Buyer VAT number (${buyerVat}) cannot be identical to Seller VAT number (${sellerVat}). Please update the customer's VAT number.`);
+    }
+    buyer = {
+      name: cust.name || 'Business Customer',
+      vatNumber: buyerVat,
+      street: cust.street || 'N/A',
+      city: cust.city || 'N/A',
+      postalZone: cust.postalZone || '00000',
+      countryCode: 'SA',
+    };
+  }
+
+  return {
+    invoice_serial_number: `${egsConfig.custom_id}-${icv}`,
+    issue_date: issueDate,
+    issue_time: issueTime,
+    invoice_counter_number: icv,
+    previous_invoice_hash: pih,
+    invoiceSubType,
+    buyer,
+    line_items: lineItems,
+    cancelation: {
+      cancelation_type: 'CREDIT_NOTE',
+      canceled_invoice_number: returnDoc.originalZatcaInvoiceNumber || returnDoc.invoiceNumber,
+      reason: returnDoc.reason || 'Return of goods',
+    },
+  };
+}
+
+/**
+ * Core Service Method: Reports or clears a Credit Note for a returned sale with ZATCA Phase 2.
+ *
+ * @param {string} returnId - MongoDB Return ObjectId
+ * @param {string} [otp]    - OTP for sandbox/developer-portal testing
+ */
+export async function reportReturnCreditNoteToZatca(returnId, otp = '12345') {
+  const returnDoc = await Return.findById(returnId);
+  if (!returnDoc) {
+    throw new Error(`Return not found with ID: ${returnId}`);
+  }
+
+  const alreadyDone = returnDoc.zatca &&
+    (returnDoc.zatca.reportingStatus === 'REPORTED' || returnDoc.zatca.reportingStatus === 'CLEARED');
+  if (alreadyDone) {
+    return returnDoc;
+  }
+
+  const originalSale = await Sale.findById(returnDoc.originalSale);
+  if (!originalSale) {
+    throw new Error(`Original sale not found for return ID: ${returnId}`);
+  }
+
+  const egsConfig = getEgsConfig();
+  const egs = new EGS({
+    ...egsConfig,
+    cancelation: {
+      cancelation_type: 'CREDIT_NOTE',
+      canceled_invoice_number: returnDoc.originalZatcaInvoiceNumber || returnDoc.invoiceNumber,
+      reason: returnDoc.reason || 'Return of goods',
+    },
+  });
+
+  const isProduction = (process.env.ZATCA_ENV || '').toLowerCase() === 'production';
+
+  let binarySecurityToken;
+  let secret;
+  let privateKey;
+
+  if (isProduction || (process.env.ZATCA_CERTIFICATE_PEM && process.env.ZATCA_SECRET && process.env.ZATCA_PRIVATE_KEY_PEM)) {
+    binarySecurityToken = (process.env.ZATCA_CERTIFICATE_PEM || '').replace(/\\n/g, '\n');
+    secret = (process.env.ZATCA_SECRET || '').trim();
+    privateKey = (process.env.ZATCA_PRIVATE_KEY_PEM || '').replace(/\\n/g, '\n');
+
+    if (!binarySecurityToken || !secret || !privateKey) {
+      throw new Error('ZATCA Production Credentials missing in .env. Please check ZATCA_CERTIFICATE_PEM, ZATCA_SECRET, and ZATCA_PRIVATE_KEY_PEM.');
+    }
+  } else {
+    const { privateKey: genKey, csr } = egs.generateNewKeysAndCSR('POSserver');
+    const compCert = await egs.issueComplianceCertificate(otp, csr);
+    binarySecurityToken = compCert.binarySecurityToken;
+    secret = compCert.secret;
+    privateKey = genKey;
+  }
+
+  // 2. Get Next ICV & Previous Invoice Hash (maintains invoice chain)
+  const icv = await getNextIcv();
+  const pih = await getLastReportedPih();
+
+  // 3. Build Credit Note payload
+  const invoicePayload = buildCreditNotePayload(returnDoc, originalSale, icv, pih, egsConfig);
+  let invoiceSubType = invoicePayload.invoiceSubType;
+
+  // 4. Sign the Credit Note locally
+  let { signedInvoiceXml, invoiceHash, qr, digitalSignature } = egs.signInvoice(
+    invoicePayload,
+    binarySecurityToken,
+    privateKey
+  );
+
+  // 5. Submit to ZATCA
+  let zatcaResult;
+  let reportingStatus = 'FAILED';
+  let clearedXml = null;
+  let clearanceStatus = null;
+
+  try {
+    if (!isProduction) {
+      zatcaResult = await egs.checkInvoiceCompliance(
+        signedInvoiceXml,
+        invoiceHash,
+        binarySecurityToken,
+        secret
+      );
+
+      const hasErrors = zatcaResult.validationResults?.errorMessages?.length > 0;
+      if (!hasErrors) {
+        reportingStatus = invoiceSubType === 'B2B' ? 'CLEARED' : 'REPORTED';
+        clearanceStatus = zatcaResult.clearanceStatus || (invoiceSubType === 'B2B' ? 'CLEARED' : null);
+      }
+    } else {
+      if (invoiceSubType === 'B2B') {
+        try {
+          zatcaResult = await egs.clearInvoice(
+            signedInvoiceXml,
+            invoiceHash,
+            binarySecurityToken,
+            secret
+          );
+          clearanceStatus = zatcaResult.clearanceStatus;
+          const hasErrors = zatcaResult.validationResults?.errorMessages?.length > 0;
+          if (!hasErrors) {
+            reportingStatus = 'CLEARED';
+            clearedXml = zatcaResult.clearedInvoiceXml || null;
+          }
+        } catch (clearErr) {
+          const isPermissionErr = clearErr.message && (
+            clearErr.message.includes('does not cover Standard documents') ||
+            clearErr.message.includes('certificate-permissions') ||
+            clearErr.message.includes('XML-INVOICE-ERROR')
+          );
+          if (isPermissionErr) {
+            // CSID is 0100 (Simplified only). Re-build and re-sign payload as B2C (0200000)
+            invoicePayload.invoiceSubType = 'B2C';
+            invoicePayload.buyer = null;
+            invoiceSubType = 'B2C';
+
+            const b2cSigned = egs.signInvoice(
+              invoicePayload,
+              binarySecurityToken,
+              privateKey
+            );
+            signedInvoiceXml = b2cSigned.signedInvoiceXml;
+            invoiceHash = b2cSigned.invoiceHash;
+            qr = b2cSigned.qr;
+            digitalSignature = b2cSigned.digitalSignature;
+
+            zatcaResult = await egs.reportInvoice(
+              signedInvoiceXml,
+              invoiceHash,
+              binarySecurityToken,
+              secret
+            );
+            const hasErrors = zatcaResult.validationResults?.errorMessages?.length > 0;
+            if (!hasErrors) {
+              reportingStatus = 'REPORTED';
+            }
+          } else {
+            throw clearErr;
+          }
+        }
+      } else {
+        zatcaResult = await egs.reportInvoice(
+          signedInvoiceXml,
+          invoiceHash,
+          binarySecurityToken,
+          secret
+        );
+        const hasErrors = zatcaResult.validationResults?.errorMessages?.length > 0;
+        if (!hasErrors) {
+          reportingStatus = 'REPORTED';
+        }
+      }
+    }
+  } catch (err) {
+    zatcaResult = { error: err.message };
+    reportingStatus = 'FAILED';
+    throw err;
+  } finally {
+    returnDoc.zatca = {
+      icv,
+      invoiceSerialNumber: invoicePayload.invoice_serial_number,
+      invoiceUUID: egsConfig.uuid,
+      invoiceType: invoiceSubType,
+      pih,
+      invoiceHash,
+      digitalSignature: digitalSignature || null,
+      qrCode: qr,
+      signedXml: signedInvoiceXml,
+      clearedXml,
+      reportingStatus,
+      clearanceStatus,
+      validationResults: zatcaResult,
+      submittedAt: new Date(),
+    };
+    await returnDoc.save();
+  }
+
+  return returnDoc;
+}
+
